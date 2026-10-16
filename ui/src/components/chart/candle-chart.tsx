@@ -6,6 +6,7 @@ import {
   TRADE_OVERLAY,
   type TradeMarkerKind,
 } from "@/lib/chart/overlays";
+import { FT_LINE_INDICATOR, registerColumnLineIndicator } from "@/lib/chart/indicators";
 
 export interface ChartMarker {
   timestamp: number;
@@ -30,6 +31,23 @@ export interface IndicatorToggles {
   vol: boolean;
   macd: boolean;
   rsi: boolean;
+}
+
+/** One strategy indicator line (from /plot_config) with resolved theme color. */
+export interface PlotLine {
+  column: string;
+  color: string;
+}
+
+/** A subplot pane: several columns sharing one indicator pane. */
+export interface PlotSubplot {
+  title: string;
+  lines: PlotLine[];
+}
+
+export interface StrategyPlot {
+  main: PlotLine[];
+  subs: PlotSubplot[];
 }
 
 const MARKER_GROUP = "ft-trade-markers";
@@ -162,6 +180,11 @@ interface CandleChartProps {
   markers: ChartMarker[];
   signals: SignalMarker[];
   indicators: IndicatorToggles;
+  /** Strategy plot_config lines/panes (already color-resolved). */
+  strategyPlot?: StrategyPlot;
+  /** column name → (timestamp → value) maps for strategyPlot columns. */
+  plotColumns?: Record<string, Record<number, number>>;
+  showStrategyPlot?: boolean;
   height?: number;
 }
 
@@ -177,6 +200,9 @@ export function CandleChart({
   markers,
   signals,
   indicators,
+  strategyPlot,
+  plotColumns,
+  showStrategyPlot = true,
   height = 560,
 }: CandleChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -184,6 +210,7 @@ export function CandleChart({
   const barsRef = useRef<KLineData[]>([]);
   const subscribeRef = useRef<((bar: KLineData) => void) | null>(null);
   const indicatorPanesRef = useRef<{ paneId: string; name: string }[]>([]);
+  const plotPanesRef = useRef<string[]>([]);
 
   // Keep barsRef current so getBars always serves the freshest dataset.
   barsRef.current = bars;
@@ -191,6 +218,7 @@ export function CandleChart({
   // Mount: init chart once.
   useEffect(() => {
     registerTradeOverlays();
+    registerColumnLineIndicator();
     const container = containerRef.current;
     if (!container) return;
     const chart = init(container, {
@@ -304,6 +332,56 @@ export function CandleChart({
     if (indicators.macd) add("MACD", false);
     if (indicators.rsi) add("RSI", false);
   }, [indicators, pair, timeframe, bars.length]);
+
+  // Strategy plot_config indicators: main-plot lines stacked on the candle
+  // pane; each subplot group gets its own pane (first line creates it).
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    // Main-plot lines: remove only our column-line instances, keep MA/EMA/BOLL.
+    chart.removeIndicator({ paneId: "candle_pane", name: FT_LINE_INDICATOR });
+    for (const paneId of plotPanesRef.current) {
+      chart.removeIndicator({ paneId });
+    }
+    plotPanesRef.current = [];
+    if (!showStrategyPlot || !strategyPlot || !plotColumns) return;
+
+    const addLine = (line: PlotLine, paneId: string | null, stack: boolean, shortName = "") => {
+      const map = plotColumns[line.column];
+      if (!map) return null;
+      const id = chart.createIndicator(
+        {
+          name: FT_LINE_INDICATOR,
+          shortName,
+          figures: [{ key: "value", title: `${line.column}: `, type: "line" }],
+          styles: { lines: [{ color: line.color }] },
+          extendData: { map },
+          ...(paneId ? { paneId } : {}),
+        },
+        stack,
+      );
+      return typeof id === "string" ? id : null;
+    };
+
+    for (const line of strategyPlot.main) {
+      addLine(line, "candle_pane", true);
+    }
+    for (const sub of strategyPlot.subs) {
+      let paneId: string | null = null;
+      sub.lines.forEach((line, i) => {
+        const id = addLine(line, paneId, i > 0, i === 0 ? sub.title : "");
+        if (i === 0 && id) {
+          // createIndicator returns the indicator id, not the pane id —
+          // resolve the actual pane so the following lines can stack onto it.
+          const pane = chart.getIndicators().find((ind) => ind.id === id)?.paneId;
+          if (pane) {
+            paneId = pane;
+            plotPanesRef.current.push(pane);
+          }
+        }
+      });
+    }
+  }, [strategyPlot, plotColumns, showStrategyPlot, pair, timeframe, bars.length]);
 
   return (
     <div

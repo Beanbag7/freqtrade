@@ -26,9 +26,22 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn, formatPct, formatPrice } from "@/lib/utils";
-import { useOpenTrades, usePairCandles, useShowConfig, useTrades, useWhitelist } from "@/lib/api/hooks";
+import {
+  useOpenTrades,
+  usePairCandles,
+  usePlotConfig,
+  useShowConfig,
+  useTrades,
+  useWhitelist,
+} from "@/lib/api/hooks";
 import type { PairHistory } from "@/lib/api/types";
-import { CandleChart, type ChartMarker, type IndicatorToggles, type SignalMarker } from "@/components/chart/candle-chart";
+import {
+  CandleChart,
+  type ChartMarker,
+  type IndicatorToggles,
+  type SignalMarker,
+  type StrategyPlot,
+} from "@/components/chart/candle-chart";
 import type { TradeMarkerKind } from "@/lib/chart/overlays";
 
 const TIMEFRAMES = ["1m", "5m", "15m", "30m", "1h", "4h", "1d"] as const;
@@ -50,6 +63,33 @@ interface MappedCandles {
 function cssVar(name: string, fallback: string): string {
   if (typeof window === "undefined") return fallback;
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+}
+
+/** Palette rotation for strategy plot_config lines (theme family). */
+function plotPalette(i: number): string {
+  const colors = [
+    cssVar("--chart-up", "#245b47"),
+    cssVar("--chart-down", "#b96359"),
+    cssVar("--warning", "#96662c"),
+    cssVar("--info", "#4e6e7b"),
+    cssVar("--muted-foreground", "#52645a"),
+  ];
+  return colors[i % colors.length];
+}
+
+const INVISIBLE_COLORS = new Set([
+  "white", "snow", "ivory", "whitesmoke", "seashell", "beige", "linen",
+  "yellow", "lightyellow", "lemonchiffon", "cyan", "aqua", "aquamarine",
+  "lime", "magenta", "fuchsia", "gainsboro", "lightgray", "lightgrey",
+]);
+
+/** Strategy-specified colors win, except ones invisible on the mist-white bg. */
+function resolvePlotColor(raw: unknown, fallback: string): string {
+  if (typeof raw !== "string" || !raw.trim()) return fallback;
+  const c = raw.trim().toLowerCase();
+  if (INVISIBLE_COLORS.has(c)) return fallback;
+  if (/^#(?:fff|ffff|ffffff|f[0-9a-f]{5})/i.test(c)) return fallback;
+  return raw;
 }
 
 /** Map freqtrade PairHistory rows to klinecharts bars + strategy signal markers. */
@@ -107,6 +147,7 @@ export default function ChartPage() {
   const [timeframe, setTimeframe] = useState("");
   const [pairOpen, setPairOpen] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [showStrategyPlot, setShowStrategyPlot] = useState(true);
   const [indicators, setIndicators] = useState<IndicatorToggles>({
     ma: true,
     ema: false,
@@ -142,7 +183,63 @@ export default function ChartPage() {
   // Recent closed trades for entry/exit markers.
   const { data: tradeHistory } = useTrades(200, 0);
 
+  // Strategy plot_config (indicator columns defined by the active strategy).
+  const { data: plotConfigRaw } = usePlotConfig({ retry: 1 });
+
   const { bars, signals } = useMemo(() => mapPairHistory(history), [history]);
+
+  // Resolve plot_config into theme-colored main/subplot line definitions,
+  // keeping only columns actually present in the dataframe response.
+  const strategyPlot = useMemo<StrategyPlot | undefined>(() => {
+    if (!plotConfigRaw || !history) return undefined;
+    const cfg = plotConfigRaw as {
+      main_plot?: Record<string, { color?: string }>;
+      subplots?: Record<string, Record<string, { color?: string }>>;
+    };
+    const available = new Set(history.columns);
+    const main = Object.entries(cfg.main_plot ?? {})
+      .filter(([col]) => available.has(col))
+      .map(([column, meta], i) => ({
+        column,
+        color: resolvePlotColor(meta?.color, plotPalette(i)),
+      }));
+    const subs = Object.entries(cfg.subplots ?? {})
+      .map(([title, lines]) => ({
+        title,
+        lines: Object.entries(lines)
+          .filter(([col]) => available.has(col))
+          .map(([column, meta], i) => ({
+            column,
+            color: resolvePlotColor(meta?.color, plotPalette(i + 2)),
+          })),
+      }))
+      .filter((s) => s.lines.length > 0);
+    if (main.length === 0 && subs.length === 0) return undefined;
+    return { main, subs };
+  }, [plotConfigRaw, history]);
+
+  // timestamp → value maps for the referenced plot columns.
+  const plotColumns = useMemo(() => {
+    if (!strategyPlot || !history) return undefined;
+    const iTs = history.columns.indexOf("__date_ts");
+    if (iTs < 0) return undefined;
+    const needed = new Set<string>();
+    strategyPlot.main.forEach((l) => needed.add(l.column));
+    strategyPlot.subs.forEach((s) => s.lines.forEach((l) => needed.add(l.column)));
+    const maps: Record<string, Record<number, number>> = {};
+    for (const col of needed) {
+      const idx = history.columns.indexOf(col);
+      if (idx < 0) continue;
+      const map: Record<number, number> = {};
+      for (const row of history.data) {
+        const ts = Number(row[iTs]);
+        const v = Number(row[idx]);
+        if (ts && Number.isFinite(v)) map[ts] = v;
+      }
+      maps[col] = map;
+    }
+    return maps;
+  }, [strategyPlot, history]);
 
   const markers = useMemo<ChartMarker[]>(() => {
     if (!effectivePair || bars.length === 0) return [];
@@ -291,6 +388,19 @@ export default function ChartPage() {
                   {INDICATOR_LABELS[key]}
                 </DropdownMenuCheckboxItem>
               ))}
+              {strategyPlot && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>策略</DropdownMenuLabel>
+                  <DropdownMenuCheckboxItem
+                    checked={showStrategyPlot}
+                    onCheckedChange={(checked) => setShowStrategyPlot(checked === true)}
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    策略指标 (plot_config)
+                  </DropdownMenuCheckboxItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -399,6 +509,9 @@ export default function ChartPage() {
               markers={markers}
               signals={signals}
               indicators={indicators}
+              strategyPlot={strategyPlot}
+              plotColumns={plotColumns}
+              showStrategyPlot={showStrategyPlot}
               height={560}
             />
           )}

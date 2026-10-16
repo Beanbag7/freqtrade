@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
 import type { CustomDataEntry, Order, Trade } from "@/lib/api/types";
@@ -13,6 +13,8 @@ import { formatNumber, formatPct, formatPrice, formatTimestamp } from "@/lib/uti
 import { ProfitText } from "@/components/shared/blocks";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
@@ -123,6 +125,7 @@ function ConfirmAction({
   variant = "outline",
   disabled = false,
   pending = false,
+  children,
   run,
 }: {
   label: ReactNode;
@@ -132,6 +135,8 @@ function ConfirmAction({
   variant?: "outline" | "destructive";
   disabled?: boolean;
   pending?: boolean;
+  /** Optional extra form controls inside the dialog (e.g. partial amount). */
+  children?: ReactNode;
   run: (done: () => void) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -153,6 +158,7 @@ function ConfirmAction({
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
+        {children}
         <AlertDialogFooter>
           <AlertDialogCancel size="sm" disabled={pending}>
             取消
@@ -189,8 +195,15 @@ export function TradeDetailSheet({
   const cancelOpenOrder = useCancelOpenOrder();
   const forceExit = useForceExit();
   const deleteTrade = useDeleteTrade();
+  const [exitAmount, setExitAmount] = useState("");
 
   const entries = customData.data?.[0]?.custom_data ?? [];
+
+  // Reset the partial-exit input whenever another trade is shown.
+  const tradeId = trade?.trade_id;
+  useEffect(() => {
+    setExitAmount("");
+  }, [tradeId]);
 
   const finish = (message: string, done: () => void) => {
     toast.success(message);
@@ -364,12 +377,18 @@ export function TradeDetailSheet({
                 <ConfirmAction
                   label="强制平仓"
                   title="强制平仓?"
-                  description="将立即以市价平掉该持仓,操作不可撤销。"
+                  description="将立即以市价平仓,操作不可撤销。留空数量则平掉全部持仓。"
                   confirmLabel="确认平仓"
                   pending={forceExit.isPending}
-                  run={(done) =>
+                  run={(done) => {
+                    const amount = Number(exitAmount);
                     forceExit.mutate(
-                      { tradeid: trade.trade_id },
+                      {
+                        tradeid: trade.trade_id,
+                        ...(exitAmount && Number.isFinite(amount) && amount > 0
+                          ? { amount }
+                          : {}),
+                      },
                       {
                         onSuccess: () => finish("已发起强制平仓", done),
                         onError: (e) => {
@@ -377,9 +396,25 @@ export function TradeDetailSheet({
                           done();
                         },
                       },
-                    )
-                  }
-                />
+                    );
+                  }}
+                >
+                  <div className="space-y-1.5 px-1">
+                    <Label htmlFor="exit-amount" className="text-xs text-muted-foreground">
+                      平仓数量(可选,留空为全部 {trade.amount})
+                    </Label>
+                    <Input
+                      id="exit-amount"
+                      type="number"
+                      min={0}
+                      step="any"
+                      value={exitAmount}
+                      onChange={(e) => setExitAmount(e.target.value)}
+                      placeholder={String(trade.amount)}
+                      className="tnum"
+                    />
+                  </div>
+                </ConfirmAction>
               )}
               <ConfirmAction
                 label="删除交易"
