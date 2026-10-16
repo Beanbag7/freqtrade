@@ -114,3 +114,24 @@ datetime-local 自动化键入需 ArrowRight 分段(Chrome 年字段收 6 位),�
 ### 边界确认(审查后仍成立)
 
 I2 的后端 NaN 500 不可修(边界:不改后端),UI 侧已给可读提示;freqUI 策略切换器属有意裁剪(N4 注释固化)。
+
+## 查漏轮(2026-10-17)
+
+### 新增验证(全部 PASS)
+
+- **8081 交易态降级四面**:回测(toast+历史 ErrorAlert)、下载(toast+ErrorAlert)、配置器(「交易对配置器仅在网页服务器模式下可用」+503)、分析页(手输框降级+「仅在网页服务器模式下可用」+提交 toast);/strategies、/pairlists/available、/download_data 在交易态均 503,UI 全部干净降级。
+- **日志页交互**:级别过滤(ERROR→0/300)、搜索(heartbeat→102/300 全命中)、5s 自动刷新声明;8082 一致。
+- **K线页控件**:交易对选择、timeframe 1m-1d 切换、指标设置 popover(MA/VOL 默认开,BOLL 勾选态翻转正确)、自动刷新开关。
+- **资产新鲜度**:installed/index.html 引用即最新构建 hash;同目录旧 hash 为 gitignored 孤儿文件,不影响服务。
+
+### 复审轮(对 b86d715c5 的独立复审)
+
+0 blocking / 2 important(既有问题,同路径顺手加固)/ 5 nit,处置于 1e81811fc:
+
+- **I-1** pairlist 评估 POST→后台置位竞态:窗口内 GET 返回 success+空 result,`result.method.join` 会崩整树(无 ErrorBoundary)→ queryFn 归一化为 pending;浏览器 3 轮快速连发复验无崩溃。
+- **I-2** 硬错误后轮询永不停止(NaN-500 场景每 2s 双请求无限打)→ 三个轮询 hook 统一 `q.state.status==="error"` 停止。
+- N-a 400 捕获加 detail 双判;N-c 合并双 JSDoc;N-b(错误期 isFetching 抖动)随 I-2 消解;N-d/N-e 记录不做(真实标签下不可能撞 key;type=number 输入天然拦截非数字)。
+
+### 修复后全量回归
+
+9 路由 × 2 实例 = 18 页面零崩溃零空白;`npm run build` 通过。
