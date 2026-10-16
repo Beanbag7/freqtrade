@@ -33,6 +33,48 @@ const TIMEFRAME_CHOICES = ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h
 
 type RangeMode = "days" | "timerange";
 
+/**
+ * Download/backtest jobs report per-subtask progress in `progress_tasks`
+ * (top-level `progress` stays null) — aggregate those for the bar and list
+ * each subtask's description underneath.
+ */
+function renderTaskProgress(task: {
+  progress?: number;
+  progress_tasks?: Record<string, { description?: string; progress?: number; total?: number }>;
+}) {
+  const subtasks = Object.values(task.progress_tasks ?? {});
+  let pct: number | null = null;
+  if (typeof task.progress === "number") {
+    pct = Math.round(task.progress * 100);
+  } else if (subtasks.length > 0) {
+    const done = subtasks.reduce((s, t) => s + (t.progress ?? 0), 0);
+    const total = subtasks.reduce((s, t) => s + (t.total ?? 0), 0);
+    if (total > 0) pct = Math.round((done / total) * 100);
+  }
+  if (pct === null && subtasks.length === 0) return null;
+  return (
+    <div className="space-y-1.5">
+      {pct !== null && (
+        <div className="flex items-center gap-2">
+          <Progress value={pct} className="h-1.5 flex-1" />
+          <span className="text-xs text-muted-foreground tnum">{pct}%</span>
+        </div>
+      )}
+      {subtasks.slice(0, 4).map((t, i) => (
+        <p key={t.description ?? i} className="truncate text-xs text-muted-foreground">
+          {t.description ?? "子任务"}
+          {t.total ? (
+            <span className="tnum"> {Math.round(((t.progress ?? 0) / t.total) * 100)}%</span>
+          ) : null}
+        </p>
+      ))}
+      {subtasks.length > 4 && (
+        <p className="text-xs text-muted-foreground">…另有 {subtasks.length - 4} 个子任务</p>
+      )}
+    </div>
+  );
+}
+
 export default function DownloadPage() {
   const { data: config } = useShowConfig();
   const { data: whitelist } = useWhitelist();
@@ -130,7 +172,7 @@ export default function DownloadPage() {
                     <button
                       type="button"
                       aria-label={`移除 ${pair}`}
-                      className="rounded-sm hover:text-negative focus-visible:outline-2 focus-visible:outline-ring"
+                      className="rounded-sm hover:text-destructive focus-visible:outline-2 focus-visible:outline-ring"
                       onClick={() => removePair(pair)}
                     >
                       <X className="size-3" aria-hidden />
@@ -242,7 +284,7 @@ export default function DownloadPage() {
                     className="w-52 tnum"
                     aria-label="起止日期"
                   />
-                  <p className={cn("text-xs", timerange && !timerangeValid ? "text-negative" : "text-muted-foreground")}>
+                  <p className={cn("text-xs", timerange && !timerangeValid ? "text-destructive" : "text-muted-foreground")}>
                     格式 YYYYMMDD-YYYYMMDD
                   </p>
                 </div>
@@ -296,7 +338,7 @@ export default function DownloadPage() {
                         className={cn(
                           "text-xs",
                           task.error
-                            ? "border-negative/40 bg-negative/10 text-negative"
+                            ? "border-destructive/40 bg-destructive/10 text-destructive"
                             : task.running
                               ? "border-info/40 bg-info/10 text-info"
                               : "border-success/40 bg-success/10 text-success",
@@ -305,15 +347,8 @@ export default function DownloadPage() {
                         {task.error ? "失败" : task.running ? "运行中" : task.status || "已完成"}
                       </Badge>
                     </div>
-                    {typeof task.progress === "number" && (
-                      <div className="flex items-center gap-2">
-                        <Progress value={Math.round(task.progress * 100)} className="h-1.5 flex-1" />
-                        <span className="text-xs text-muted-foreground tnum">
-                          {Math.round(task.progress * 100)}%
-                        </span>
-                      </div>
-                    )}
-                    {task.error && <p className="text-xs text-negative">{task.error}</p>}
+                    {renderTaskProgress(task)}
+                    {task.error && <p className="text-xs text-destructive">{task.error}</p>}
                     <p className="text-xs text-muted-foreground tnum">{task.job_id}</p>
                   </li>
                 ))}

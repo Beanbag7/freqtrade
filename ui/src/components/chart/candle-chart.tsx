@@ -149,12 +149,13 @@ function indicatorStyles(name: string) {
   }
 }
 
-/** "5m" → { span: 5, type: "minute" } */
-export function parseTimeframe(tf: string): { span: number; type: "minute" | "hour" | "day" | "week" } {
-  const m = /^(\d+)([mhdw])$/.exec(tf);
+/** "5m" → { span: 5, type: "minute" }; "1M" → month; case-insensitive otherwise. */
+export function parseTimeframe(tf: string): { span: number; type: "minute" | "hour" | "day" | "week" | "month" } {
+  const m = /^(\d+)([a-zA-Z])$/.exec(tf);
   if (!m) return { span: 5, type: "minute" };
   const span = Number(m[1]);
-  const unit = m[2];
+  if (m[2] === "M") return { span, type: "month" };
+  const unit = m[2].toLowerCase();
   if (unit === "m") return { span, type: "minute" };
   if (unit === "h") return { span, type: "hour" };
   if (unit === "d") return { span, type: "day" };
@@ -327,7 +328,9 @@ export function CandleChart({
     }
     indicatorPanesRef.current = [];
     const add = (name: string, main: boolean, params?: Record<string, unknown>) => {
-      const paneId = chart.createIndicator(
+      // createIndicator returns the indicator id, NOT the pane id — resolve
+      // the real pane so removeIndicator({ paneId, name }) can match later.
+      const id = chart.createIndicator(
         {
           name,
           ...params,
@@ -336,8 +339,9 @@ export function CandleChart({
         },
         main,
       );
-      if (typeof paneId === "string") {
-        indicatorPanesRef.current.push({ paneId, name });
+      if (typeof id === "string") {
+        const paneId = chart.getIndicators().find((ind) => ind.id === id)?.paneId;
+        if (paneId) indicatorPanesRef.current.push({ paneId, name });
       }
     };
     if (indicators.ma) add("MA", true);
