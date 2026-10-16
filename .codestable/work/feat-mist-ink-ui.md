@@ -1,0 +1,54 @@
+# feat: 雾白墨绿 UI — 重构 freqtrade 内建 Web 界面
+
+> 类型：feat（本仓 `ui/` 新应用，替换内建 freqUI 3.1.3）
+> 状态：**DONE — 已合并 stable @969cc8446**（2026-10-16；cs-review 两轮：0 blocking，3 important 全修复并经复审确认；干净 worktree `npm ci && npm run build` 实证可构建）
+
+## 目标
+
+按《雾白墨绿 v1.1》设计规范(`/Users/modaoshi/Downloads/ui-design-system-agent-spec.md`)彻底替换 freqtrade 内建 Web UI:React + TypeScript + shadcn/ui(Radix)+ Tailwind v4,Vite 构建直出 `freqtrade/rpc/api_server/ui/installed/`,机器人直接服务新界面,覆盖并对齐旧 freqUI 全部核心能力。
+
+## 现场(已核实)
+
+- 旧 freqUI(Vue)产物已从 `installed/` 完全清除(`emptyOutDir` 覆盖),`fallback_file.html` 已重写为新风格 + 新构建指引。
+- 8 页全部以真实 dry-run 机器人(127.0.0.1:8081)浏览器验收:登录/概览/交易/K线/交易对/控制/回测/日志;移动端 390px 无横向滚动。
+- 已提交:`ee358412b`(主体,+12228)、`b9857af07`(plot_config 策略指标 + 部分平仓 + fallback 页)、`abd6e5a66`(清理 .gitkeep)。
+- API 契约源头:`freqtrade/rpc/api_server/api_schemas.py`;登录为 HTTP Basic(`api_auth.py:124`);WS 为 `/api/v1/message/ws?token=<JWT>`,JWT 15 分钟过期需重连换新 token;消息类型枚举 `freqtrade/enums/rpcmessagetype.py`。
+- 回测历史/结果接口在 trade 模式返回 "Bot is not in the correct state",须 `freqtrade webserver` 模式验证(计划 8082 端口起第二实例)。
+
+## 边界
+
+- 不做多机器人面板:独立部署版 freqUI 的特性,单机器人内嵌 UI 天然不适用。
+- 轮询保留(5s/15s/60s 分级),WS 作为交易/白名单/新K线事件的即时失效通道叠加,不替代轮询。
+- 策略指定颜色在雾白底上不可见(白/黄/青等)时回退主题调色板。
+- 数据下载为交易所公网数据的恢复性写操作,erase 默认关;不回溯修改 freqtrade 后端任何代码。
+
+## 证据
+
+- `ui/` 源码 26 个 shadcn 组件 + 完整类型化数据层(`src/lib/api/`);`tsc -b` 全绿;`npm run build` 通过(按页分包)。
+- K线页截图验收:策略 plot_config(tema/sar 主图,MACD 双线同窗格,RSI 副图)正确渲染;klinecharts `createIndicator` 返回指标 id 而非 pane id(已修,堆叠前须经 `getIndicators()` 解析 paneId)。
+- 交易详情:强平弹窗支持可选数量(留空=全部),AlertDialog 二次确认符合规范。
+- 日志协议实测为五元组 `[formattedTime, createdMs, module, level, message]`。
+
+## 验收
+
+1. WS:连接建立(101),forceenter 后概览/持仓在 5s 轮询到达前即时刷新;token 过期自动重连。✅(订阅全量类型后,exit_fill 广播 → 页面零手动刷新即时清空持仓,`__ftWs` 计数递增)
+2. 数据下载页:白名单/自选交易对 + 时间粒度 + days/timerange 互斥校验;启动后台任务后轮询 `/background` 展示进度至完成;失败有 ErrorAlert。✅(8081 验证表单+错误路径;8082 webserver 验证任务卡 success 态 + feather 落盘)
+3. 回测可视化:webserver 模式(8082)跑一次真实回测 → 结果详情内选交易对 → K线 + 开平仓标记正确渲染。✅(3 交易结果,BTC/ETH 切换,盈绿亏红+百分比标签,focus 滚动到首笔交易;顺带修复 `filename`+`strategy` 双参数缺失导致的 422 与 total_trades 字段名)
+4. 全部完成后合并 `feat/mist-ink-ui` → `stable`,cs-review 无 blocking。✅(merge 969cc8446;复审额外捕获 .gitignore `lib/` 规则吞掉 `ui/src/lib/` 的重大隐患并修复)
+
+## 毕业清单(2026-10-16)
+
+- UI 运维/API 契约事实 → `.codestable/attention.md`(内建 Web UI 一节)
+- klinecharts 指标 id ≠ pane id → `.codestable/lessons/2026-10-16-klinecharts-indicator-id-vs-pane-id.md`
+- freqtrade WS 显式订阅语义 → `.codestable/lessons/2026-10-16-freqtrade-ws-explicit-subscribe.md`
+- Python gitignore 吞前端目录 → `.codestable/lessons/2026-10-16-python-gitignore-eats-frontend-lib.md`
+- 本单据按仓内惯例(G3-lite 同例)留档备查,不删除。
+
+## 状态与未决
+
+- [x] WS 实时推送(`src/lib/api/ws.ts` + AppShell 挂载)
+- [x] 数据下载页(`/download` 路由 + 导航)
+- [x] 回测结果 K 线复盘(复用 CandleChart + `/pair_history` POST)
+- [x] webserver 模式验证实例(8082)
+- [x] cs-review(两轮)→ 合并 stable → cs-keep 沉淀
+- 未决(有意不做,见"边界"):多机器人面板;analyzed_df 订阅推送全量 DF(数据量大,轮询已够)
