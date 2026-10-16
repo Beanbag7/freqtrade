@@ -64,10 +64,10 @@ function extractSummary(backtestResult: unknown): LooseRecord | null {
   return null;
 }
 
-/** 分析页签用完整策略明细(periodic_breakdown 等只在 strategy 字典里,comparison 行没有)。 */
 /**
- * 取 `strategy` 字典第一个键的明细(N4):freqtrade 回测单进程只跑一个策略,
- * strategy 字典正常只有一个键;多策略结果只展示首个,属已知晓的对 freqUI 策略切换器的裁剪。
+ * 分析页签用完整策略明细(periodic_breakdown 等只在 `strategy` 字典里,comparison 行没有)。
+ * 取 `strategy` 字典第一个键(N4):freqtrade 回测单进程只跑一个策略,字典正常只有一个键;
+ * 多策略结果只展示首个,属已知晓的对 freqUI 策略切换器的裁剪。
  */
 function extractStrategyDetail(backtestResult: unknown): LooseRecord | null {
   if (!backtestResult || typeof backtestResult !== "object") return null;

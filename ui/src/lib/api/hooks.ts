@@ -409,18 +409,28 @@ export const usePairlistEvalResult = (jobId: string | null, opts?: Opts<Whitelis
   useQuery({
     queryKey: ["pairlist-eval", jobId ?? ""],
     queryFn: async () => {
+      const pending: WhitelistEvaluateResponse = { status: "pending", error: null, result: null };
       try {
-        return await api<WhitelistEvaluateResponse>(`/pairlists/evaluate/${jobId}`);
+        const res = await api<WhitelistEvaluateResponse>(`/pairlists/evaluate/${jobId}`);
+        // I-1 竞态加固:POST 创建 job(is_running=false)到后台任务置位之间有窗口,
+        // 此间 GET 会返回 success+空 result {};whitelist 缺失按挂起处理,避免组件渲染崩溃
+        if (res.status === "success" && !Array.isArray(res.result?.whitelist)) return pending;
+        return res;
       } catch (e) {
-        // 运行期间后端返回 400 "Job not finished yet."——映射为挂起态,不能谎报为失败
-        if (e instanceof ApiError && e.status === 400) {
-          return { status: "pending", error: null, result: null } satisfies WhitelistEvaluateResponse;
+        // 运行期间后端返回 400 "Job not finished yet."——映射为挂起态,不能谎报为失败。
+        // N-a:双判 detail 文本,避免未来该路径出现其他 400 时被误吞为永久 pending
+        if (e instanceof ApiError && e.status === 400 && e.detail === "Job not finished yet.") {
+          return pending;
         }
         throw e;
       }
     },
     enabled: Boolean(jobId),
-    refetchInterval: (q) => (q.state.data?.status === "success" || q.state.data?.error ? false : 2_000),
+    // I-2:硬错误(404/500/断网)下停止轮询,避免每 2s 无限重试
+    refetchInterval: (q) =>
+      q.state.status === "error" || q.state.data?.status === "success" || q.state.data?.error
+        ? false
+        : 2_000,
     retry: 1,
     ...opts,
   });
@@ -438,7 +448,12 @@ export const useLookaheadResult = (jobId: string | null, opts?: Opts<LookaheadAn
     queryKey: ["lookahead", jobId ?? ""],
     queryFn: () => api<LookaheadAnalysisResponse>(`/lookahead_analysis/${jobId}`),
     enabled: Boolean(jobId),
-    refetchInterval: (q) => (q.state.data?.running === false && q.state.data?.status !== "running" ? false : 2_000),
+    // I-2:硬错误下停止轮询(NaN 结果致后端稳定 500 的场景不再每 2s 无限打)
+    refetchInterval: (q) =>
+      q.state.status === "error" ||
+      (q.state.data?.running === false && q.state.data?.status !== "running")
+        ? false
+        : 2_000,
     retry: 1,
     ...opts,
   });
@@ -454,7 +469,11 @@ export const useRecursiveResult = (jobId: string | null, opts?: Opts<RecursiveAn
     queryKey: ["recursive", jobId ?? ""],
     queryFn: () => api<RecursiveAnalysisResponse>(`/recursive_analysis/${jobId}`),
     enabled: Boolean(jobId),
-    refetchInterval: (q) => (q.state.data?.running === false && q.state.data?.status !== "running" ? false : 2_000),
+    refetchInterval: (q) =>
+      q.state.status === "error" ||
+      (q.state.data?.running === false && q.state.data?.status !== "running")
+        ? false
+        : 2_000,
     retry: 1,
     ...opts,
   });
