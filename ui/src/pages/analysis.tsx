@@ -151,17 +151,25 @@ function LookaheadTab() {
   const start = useStartLookahead();
   const result = useLookaheadResult(jobId);
 
-  const running = Boolean(jobId && result.data?.running);
+  const running = Boolean(jobId && (result.data ? result.data.running : result.isFetching));
+  const failed = Boolean(result.data && !result.data.running && result.data.status === "error");
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!strategy.trim()) {
       toast.error("请选择策略");
       return;
     }
+    // N5:`|| 10` 会把合法的 0 吞掉,显式校验
+    const min = minTrades.trim() === "" ? 10 : Number(minTrades);
+    const target = targetTrades.trim() === "" ? 20 : Number(targetTrades);
+    if (!Number.isFinite(min) || !Number.isFinite(target)) {
+      toast.error("交易数必须是有效数字");
+      return;
+    }
     const payload: Record<string, unknown> = {
       strategy: strategy.trim(),
-      minimum_trade_amount: Number(minTrades) || 10,
-      targeted_trade_amount: Number(targetTrades) || 20,
+      minimum_trade_amount: min,
+      targeted_trade_amount: target,
       lookahead_allow_limit_orders: allowLimitOrders,
     };
     if (timeframe.trim()) payload.timeframe = timeframe.trim();
@@ -253,6 +261,9 @@ function LookaheadTab() {
       </Card>
 
       {result.isError && <ErrorAlert title="分析状态获取失败" error={result.error} />}
+      {failed && (
+        <ErrorAlert title="分析失败" error={new Error(result.data?.status_msg ?? "未知错误")} />
+      )}
       <RunState running={running} statusMsg={result.data?.status_msg} />
       {result.data?.result && <LookaheadResultCard result={result.data.result} />}
       {!jobId && !result.isError && (
@@ -338,20 +349,25 @@ function RecursiveTab() {
   const start = useStartRecursive();
   const result = useRecursiveResult(jobId);
 
-  const running = Boolean(jobId && result.data?.running);
+  const running = Boolean(jobId && (result.data ? result.data.running : result.isFetching));
+  const failed = Boolean(result.data && !result.data.running && result.data.status === "error");
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!strategy.trim()) {
       toast.error("请选择策略");
       return;
     }
+    // 后端强制要求 timerange(recursive_helpers.py 缺省直接报错),前端先拦住
+    if (!timerange.trim()) {
+      toast.error("递归分析必须填写回测区间");
+      return;
+    }
     const candles = startupCandles
       .split(/[,\s]+/)
       .map((s) => Number(s.trim()))
       .filter((n) => Number.isInteger(n) && n > 0);
-    const payload: Record<string, unknown> = { strategy: strategy.trim() };
+    const payload: Record<string, unknown> = { strategy: strategy.trim(), timerange: timerange.trim() };
     if (timeframe.trim()) payload.timeframe = timeframe.trim();
-    if (timerange.trim()) payload.timerange = timerange.trim();
     if (candles.length > 0) payload.startup_candle = candles;
     setJobId(null);
     start.mutate(payload, {
@@ -385,13 +401,14 @@ function RecursiveTab() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="ra-tr" className="text-xs text-muted-foreground">
-                回测区间(可选)
+                回测区间(必填)
               </Label>
               <Input
                 id="ra-tr"
                 value={timerange}
                 onChange={(e) => setTimerange(e.target.value)}
                 placeholder="如 20250901-20251001"
+                required
               />
             </div>
             <div className="space-y-1.5">
@@ -416,7 +433,20 @@ function RecursiveTab() {
         </CardContent>
       </Card>
 
-      {result.isError && <ErrorAlert title="分析状态获取失败" error={result.error} />}
+      {result.isError && (
+        <div className="space-y-1.5">
+          <ErrorAlert title="分析状态获取失败" error={result.error} />
+          {result.error.message.includes("500") && (
+            <p className="text-xs text-muted-foreground">
+              若结果含非数值(NaN)方差,后端会返回 500——属已知后端限制,换更短的区间或更少启动
+              K 线数重试。
+            </p>
+          )}
+        </div>
+      )}
+      {failed && (
+        <ErrorAlert title="分析失败" error={new Error(result.data?.status_msg ?? "未知错误")} />
+      )}
       <RunState running={running} statusMsg={result.data?.status_msg} />
       {result.data?.result && <RecursiveResultCard result={result.data.result} />}
       {!jobId && !result.isError && (

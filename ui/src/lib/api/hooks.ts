@@ -4,7 +4,7 @@ import {
   useQueryClient,
   type UseQueryOptions,
 } from "@tanstack/react-query";
-import { api } from "@/lib/api/client";
+import { api, ApiError } from "@/lib/api/client";
 import type {
   BackgroundTaskStatus,
   BacktestHistoryEntry,
@@ -175,7 +175,8 @@ export const useTimeunitProfit = (unit: TimeUnit, timescale?: number, opts?: Opt
       const res = await api<DailyWeeklyMonthly>(`/${unit}`, {
         query: timescale ? { timescale } : {},
       });
-      // 接口按日期倒序返回;图表消费统一转为升序(左旧右新)
+      // 接口按日期倒序返回;此处统一转为升序(左旧右新)——所有消费方按此约定实现,
+      // 新增消费方不要再假设接口原生顺序。
       return {
         ...res,
         data: [...res.data].sort((a, b) => a.date.localeCompare(b.date)),
@@ -407,7 +408,17 @@ export const useEvaluatePairlists = () =>
 export const usePairlistEvalResult = (jobId: string | null, opts?: Opts<WhitelistEvaluateResponse>) =>
   useQuery({
     queryKey: ["pairlist-eval", jobId ?? ""],
-    queryFn: () => api<WhitelistEvaluateResponse>(`/pairlists/evaluate/${jobId}`),
+    queryFn: async () => {
+      try {
+        return await api<WhitelistEvaluateResponse>(`/pairlists/evaluate/${jobId}`);
+      } catch (e) {
+        // 运行期间后端返回 400 "Job not finished yet."——映射为挂起态,不能谎报为失败
+        if (e instanceof ApiError && e.status === 400) {
+          return { status: "pending", error: null, result: null } satisfies WhitelistEvaluateResponse;
+        }
+        throw e;
+      }
+    },
     enabled: Boolean(jobId),
     refetchInterval: (q) => (q.state.data?.status === "success" || q.state.data?.error ? false : 2_000),
     retry: 1,

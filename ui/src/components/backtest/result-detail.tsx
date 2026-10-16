@@ -65,6 +65,10 @@ function extractSummary(backtestResult: unknown): LooseRecord | null {
 }
 
 /** 分析页签用完整策略明细(periodic_breakdown 等只在 strategy 字典里,comparison 行没有)。 */
+/**
+ * 取 `strategy` 字典第一个键的明细(N4):freqtrade 回测单进程只跑一个策略,
+ * strategy 字典正常只有一个键;多策略结果只展示首个,属已知晓的对 freqUI 策略切换器的裁剪。
+ */
 function extractStrategyDetail(backtestResult: unknown): LooseRecord | null {
   if (!backtestResult || typeof backtestResult !== "object") return null;
   const stratMap = (backtestResult as LooseRecord).strategy;
@@ -103,14 +107,20 @@ interface TagRow {
 function tagRows(summary: LooseRecord | null, field: string): TagRow[] {
   return (summary ? looseArr(summary, field) : [])
     .filter((r) => r && typeof r === "object")
-    .map((r) => ({
-      key: looseStr(r, "key") || "(无标签)",
-      trades: looseNum(r, "trades"),
-      profitMeanPct: looseNum(r, "profit_mean_pct"),
-      profitTotalAbs: looseNum(r, "profit_total_abs"),
-      profitTotalPct: looseNum(r, "profit_total_pct"),
-      durationAvg: looseStr(r, "duration_avg"),
-    }))
+    .map((r) => {
+      // I1:mix_tag_stats 的 key 是 (enter_tag, exit_reason) 二元组,JSON 序列化为数组
+      const rawKey = (r as LooseRecord).key;
+      return {
+        key: Array.isArray(rawKey)
+          ? rawKey.map((v) => String(v ?? "")).join(" / ")
+          : looseStr(r, "key") || "(无标签)",
+        trades: looseNum(r, "trades"),
+        profitMeanPct: looseNum(r, "profit_mean_pct"),
+        profitTotalAbs: looseNum(r, "profit_total_abs"),
+        profitTotalPct: looseNum(r, "profit_total_pct"),
+        durationAvg: looseStr(r, "duration_avg"),
+      };
+    })
     .sort((a, b) => Math.abs(b.profitTotalAbs ?? 0) - Math.abs(a.profitTotalAbs ?? 0));
 }
 

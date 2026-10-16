@@ -40,20 +40,41 @@ function defaultParams(spec: PairListResponse): Record<string, unknown> {
   return out;
 }
 
-/** 单个参数输入:按 schema 类型渲染 number / option / boolean / text。 */
+/** 单个参数输入:按 schema 类型渲染 number / option / boolean / list(只读) / text。 */
 function ParamField({
   name,
   spec,
   value,
   onChange,
+  idPrefix = "",
 }: {
   name: string;
   spec: PairListParamSpec;
   value: unknown;
   onChange: (v: unknown) => void;
+  /** 链步骤序号前缀,避免多个处理器同名参数产生重复 DOM id(N3)。 */
+  idPrefix?: string;
 }) {
-  const id = `pl-param-${name}`;
+  const id = `pl-param-${idPrefix}${name}`;
   const label = spec.description || name;
+  if (spec.type === "list") {
+    // list 参数(如 MarketCapPairList 的列表项)编辑后以 string 提交会导致后端类型错误;
+    // 未编辑器透传默认数组无妨,因此此处只读展示(N2)。
+    return (
+      <div className="space-y-1.5">
+        <Label htmlFor={id} className="text-xs text-muted-foreground">
+          {label}
+        </Label>
+        <Input
+          id={id}
+          className="tnum h-8 text-sm"
+          value={Array.isArray(value ?? spec.default) ? JSON.stringify(value ?? spec.default) : ""}
+          disabled
+          title="列表参数请在配置文件中编辑"
+        />
+      </div>
+    );
+  }
   if (spec.type === "option" && spec.options?.length) {
     return (
       <div className="space-y-1.5">
@@ -191,8 +212,12 @@ export function PairlistConfigTab() {
     );
   };
 
+  // 提交后到首轮轮询返回前也算进行中(B1+N6:首轮前 data 为 undefined)
   const running = Boolean(
-    jobId && evalResult.data && evalResult.data.status !== "success" && !evalResult.data.error,
+    jobId &&
+      (evalResult.data
+        ? evalResult.data.status !== "success" && !evalResult.data.error
+        : evalResult.isFetching),
   );
 
   const runEvaluate = () => {
@@ -359,6 +384,7 @@ export function PairlistConfigTab() {
                             spec={p}
                             value={step.params[key]}
                             onChange={(v) => updateParam(idx, key, v)}
+                            idPrefix={`${idx}-`}
                           />
                         ))}
                       </div>
