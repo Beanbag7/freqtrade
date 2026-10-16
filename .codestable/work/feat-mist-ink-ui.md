@@ -91,3 +91,26 @@ datetime-local 自动化键入需 ArrowRight 分段(Chrome 年字段收 6 位),�
 - [x] webserver 模式验证实例(8082)
 - [x] cs-review(两轮)→ 合并 stable → cs-keep 沉淀
 - 未决(有意不做,见"边界"):多机器人面板;analyzed_df 订阅推送全量 DF(数据量大,轮询已够)
+
+## 收尾轮:全量端到端补验 + 独立审查补审(2026-10-16 晚)
+
+### 补验 9 项(ego-browser,8081/8082 双实例)
+
+全部 PASS:递归分析结果矩阵表(指标×启动K线数,缺失值"—");黑名单空格批量添加+AlertDialog 逐条移除;交易详情「从交易所重载」「删除交易」(顺带清理 #6 残留灰尘仓,挂单成交后「取消未成交单」正确禁用);机器人暂停/停止/启动三态往返(API state 与徽章一致);登录失败提示与退出登录;下载页起止日期模式/开关/白名单 0 禁用防呆/timerange 提交落盘(SOL_USDT-1h.feather);配置器参数覆盖(number_assets=5 → 精确 5 对)与失败路径(纯过滤器链报错如实展示);移动端 390px 汉堡导航(CDP 模拟);WS 静默刷新(坏 access+好 refresh → 自动换 token、WS 重连 OPEN、未跳登录)。
+
+### 独立 cs-review 补审(969cc8446..611867043)
+
+2 blocking / 3 important / 8 nit,全部处置于 b86d715c5:
+
+- **B1** `GET /pairlists/evaluate/{jobid}` 运行期间返回 400 → hook 映射为挂起态;此前运行中常显红色失败横幅且按钮不禁用。浏览器高频采样复验:运行期按钮"评估中…"禁用、零错误横幅、完成恢复。
+- **B2** 递归分析 timerange 后端强制要求但 UI 标可选,失败静默 → 改必填+原生校验,两页签渲染 `status=error` 的 `status_msg`。实测无数据区间提交 → "分析失败 / Analysis failed with No data found. Terminating."。
+- **I1** mix_tag_stats key 二元组 → 数组 join(" / ");**I2** NaN 致后端 500 补可读提示;**I3** 升序约定注释固化。
+- nit:N1(400 双倍请求)随 B1 消除;N2 list 参数只读防类型错;N3 参数 DOM id 加步骤前缀;N4 extractStrategyDetail 首策略裁剪注释;N5 `|| 10` 吞 0 修复;N6 首轮轮询间隙计入运行态;N7/N8 记录不做(tooltip 打磨/可逆本地操作无需 AlertDialog)。
+
+### 审查后回归
+
+前瞻分析默认路径(2 天区间,0 信号未发现偏差)、配置器 StaticPairList(3 对)均复验 PASS;`npm run build` 通过。
+
+### 边界确认(审查后仍成立)
+
+I2 的后端 NaN 500 不可修(边界:不改后端),UI 侧已给可读提示;freqUI 策略切换器属有意裁剪(N4 注释固化)。
