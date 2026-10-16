@@ -14,3 +14,4 @@
 - 测试机器人:dry-run `freqtrade trade -c user_data/config.json --strategy SampleStrategy`(127.0.0.1:8081,账密 freqtrade / 见 config)。`force_entry_enable` 已开(本轮验证强开链路时打开)。
 - 前端列表过滤组件禁止"先截断后过滤"(曾 `slice(0,200)` 致 OKX 靠后交易对永远搜不到);cmdk 自带过滤,渲染全量即可。
 - `.gitignore` 的 Python 打包规则 `lib/` 曾把 `ui/src/lib/` 整体忽略(已加 `!ui/src/lib/` 例外);新增前端目录树时先 `git check-ignore` 验证。
+- 多机器人跨源:目标机器人须在 `api_server.CORS_origins` 列入本 UI 源并重启,否则浏览器拦截(webserver.py CORS 中间件,默认空)。freqtrade Basic 认证仅支持 ASCII 凭证(后端 `b64decode().decode("ascii")`)。`crypto.randomUUID` 在非安全上下文(http://IP)不可用,前端 id 生成用 `crypto.getRandomValues`。webserver 模式 `/show_config.state` 返回空串(非 "stopped")。`/freqaimodels` 为 webserver 限定端点。日志五元组第二元素是 epoch 毫秒浮点(时区转换须用它,formatted 串是服务器本地时区)。
