@@ -41,6 +41,26 @@
   (/lookahead_analysis、/recursive_analysis,后台任务轮询专用结果端点)。
   注:/background 列表不含 result,专用端点才返回;递归结果若含 NaN 需浏览器实测确认解析。
 
+## 端到端点击验证(2026-10-16 第四轮,611867043)
+
+双实例全页面点击巡查 + 真实操作链路,捕获并修复 6 处缺陷:
+
+1. `/daily` 倒序返回 → useTimeunitProfit 统一升序(累计收益曲线与近7日柱图原方向相反)。
+2. HA 开关只刷新末根 → CandleChart 新增 `dataEpoch` prop,原地变换触发全量 resetData。
+3. WS 交易事件为**扁平载荷**(字段在顶层,非 data 包裹)→ toast 交易对显示 `?`;
+   修复后实测 "做多开仓 ETH/USDT 价格 2,475.52"、"平仓 ETH/USDT 成交价 … · 收益 -0.29%"。
+4. 回测失败静默 → 运行卡结束后显示可关闭错误横幅(status_msg 为身份,新报错会再弹)。
+5. 下载页交易对 `slice(0,200)` 截断 → OKX 300+ USDT 对中 SOL/USDT 永远搜不到;去掉截断。
+6. 进行中交易无详情入口(详情面板只能从已平仓列表开)→ 概览持仓卡行可点击开面板,
+   取消挂单/分批平仓/强平/删除/重载由此可达。
+
+通过项:锁定增删(AlertDialog+计数回零)、强制开仓(市价即成;限价未成交超时由后端自动取消)、
+分批强平 0.01 精确减半(realized_profit 落账)、回测分析页签与 API 逐字段一致、
+配置器 StaticPairList 评估出 BTC/ETH/SOL、前瞻偏差分析跑完出结果卡、递归分析提交+轮询、
+下载任务 success+feather 落盘、401 双路径(无 token loader 拦截 / 假 token refresh 失败)跳 /login。
+datetime-local 自动化键入需 ArrowRight 分段(Chrome 年字段收 6 位),属测试技巧非缺陷。
+8081 残留一笔 dry-run 限价卖单等待成交,无害。
+
 ## 证据
 
 - `ui/` 源码 26 个 shadcn 组件 + 完整类型化数据层(`src/lib/api/`);`tsc -b` 全绿;`npm run build` 通过(按页分包)。
