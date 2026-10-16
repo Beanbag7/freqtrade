@@ -1,0 +1,157 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@fontsource-variable/inter";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * 雾白墨绿 design tokens
+ * background 雾白 #F5F6F3 / card 近白 #FCFDFC / foreground 深墨 #17251E
+ * primary 墨绿 #245B47 / border 细边 #DEE5DE / negative 珊瑚 #B96359
+ * State colors are individually tuned within the same low-saturation family.
+ */
+:root {
+  --background: #f5f6f3;
+  --foreground: #17251e;
+  --card: #fcfdfc;
+  --card-foreground: #17251e;
+  --popover: #fcfdfc;
+  --popover-foreground: #17251e;
+  --primary: #245b47;
+  --primary-foreground: #f4f7f4;
+  /* selected tint: pale ink-green wash */
+  --secondary: #e4eae4;
+  --secondary-foreground: #1e3a2e;
+  --muted: #ecefe9;
+  --muted-foreground: #52645a;
+  --accent: #e2eae3;
+  --accent-foreground: #1e3a2e;
+  --destructive: #b96359;
+  --destructive-foreground: #faf3f2;
+  --success: #3e7c51;
+  --success-foreground: #f2f7f3;
+  --warning: #96662c;
+  --warning-foreground: #faf6ee;
+  --info: #4e6e7b;
+  --info-foreground: #f2f6f7;
+  --border: #dee5de;
+  --input: #d3dcd2;
+  --ring: #245b47;
+  /* candle / number semantics */
+  --chart-up: #245b47;
+  --chart-down: #b96359;
+
+  --radius: 0.75rem; /* 12px cards */
+  --radius-sm: 0.375rem; /* 6px badges */
+  --radius-md: 0.5rem; /* 8px controls */
+  --radius-lg: 0.75rem; /* 12px cards */
+  --radius-xl: 1rem;
+
+  --shadow-xs: 0 1px 2px 0 rgb(23 37 30 / 0.05);
+  --shadow-sm: 0 1px 3px 0 rgb(23 37 30 / 0.06), 0 1px 2px -1px rgb(23 37 30 / 0.05);
+
+  --font-sans:
+    "Inter Variable", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    "Noto Sans CJK SC", system-ui, -apple-system, sans-serif;
+  --font-mono:
+    "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-up: var(--chart-up);
+  --color-chart-down: var(--chart-down);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  /* Typography scale per spec §3 */
+  --text-xs: 0.75rem; /* 12px 辅助标签 */
+  --text-xs--line-height: 1.125rem; /* 18px */
+  --text-sm: 0.875rem; /* 14px 正文 */
+  --text-sm--line-height: 1.375rem; /* 22px */
+  --text-control: 0.875rem; /* 14px 控件与页签 */
+  --text-control--line-height: 1.25rem; /* 20px */
+  --text-base: 1rem; /* 16px 模块标题 */
+  --text-base--line-height: 1.5rem; /* 24px */
+  --text-2xl: 1.5rem; /* 24px 页面标题 */
+  --text-2xl--line-height: 2rem; /* 32px */
+  --text-3xl: 1.75rem; /* 28px 核心数值 */
+  --text-3xl--line-height: 2.25rem; /* 36px */
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+html {
+  font-size: 16px;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  line-height: 1.375rem;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Numeric alignment for values, ratios, quantities and times */
+.tnum,
+[data-tnum] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Restrained, consistent focus visibility */
+:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 1px;
+}
+
+/* Thin, low-contrast scrollbars in bounded scroll areas */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: #c7d0c6;
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
