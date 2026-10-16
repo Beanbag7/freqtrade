@@ -21,6 +21,25 @@
 - 轮询保留(5s/15s/60s 分级),WS 作为交易/白名单/新K线事件的即时失效通道叠加,不替代轮询。
 - 策略指定颜色在雾白底上不可见(白/黄/青等)时回退主题调色板。
 - 数据下载为交易所公网数据的恢复性写操作,erase 默认关;不回溯修改 freqtrade 后端任何代码。
+- 不做主题/时区设置页:雾白墨绿规范固定亮色主题;时间统一本地时区渲染。
+- 不做 freqAI 模型输入与 PlotConfigurator(ad-hoc 任意列绘图):plot_config 已覆盖主用例。
+
+## freqUI 对齐补齐(2026-10-16 第三轮,ee921ffb9)
+
+以 frequi 仓库 main 分支逐视图/组件核对后补齐:
+
+- 回测详情新增「分析」页签:分时段盈亏(日/周/月)+ 进场标签/退出原因/混合标签表
+  (数据本就在 backtest_result.strategy.* 里:periodic_breakdown / results_per_enter_tag /
+  exit_reason_summary / mix_tag_stats,纯展示)。
+- K 线页新增 Heikin Ashi 开关(freqUI CandleChart `heikinAshi` 同名功能,客户端变换,
+  时间戳不动,交易标记仍按真实价格对齐——freqUI 行为相同)。
+- 交易对页新增「配置器」页签(pairlist_config.vue 等价):/pairlists/available 取处理器
+  参数 schema → 组装链(排序/删改/参数表单)→ POST /pairlists/evaluate →
+  轮询 /pairlists/evaluate/{jobid} 展示白名单结果。仅 webserver 模式。
+- 仪表盘新增累计收益曲线卡(/daily 30 天累计,纯 SVG,CumProfitChart 等价)。
+- 新增 /analysis 策略分析页:前瞻偏差 + 递归分析两页签
+  (/lookahead_analysis、/recursive_analysis,后台任务轮询专用结果端点)。
+  注:/background 列表不含 result,专用端点才返回;递归结果若含 NaN 需浏览器实测确认解析。
 
 ## 证据
 
