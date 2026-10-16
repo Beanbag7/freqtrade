@@ -122,3 +122,7 @@ target/
 !config_examples/config_freqai.example.json
 
 docker-compose-*.yml
+
+# New React UI
+ui/node_modules/
+ui/dist/
