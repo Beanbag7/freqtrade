@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Check, ChevronsUpDown, RefreshCw, SlidersHorizontal } from "lucide-react";
+import { Check, ChartCandlestick, ChevronsUpDown, Plus, RefreshCw, SlidersHorizontal, Trash2 } from "lucide-react";
 import type { KLineData } from "klinecharts";
 import { PageHeader } from "@/components/shared/blocks";
 import { EmptyState, ErrorAlert } from "@/components/shared/states";
@@ -17,6 +17,13 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -112,6 +119,11 @@ export default function ChartPage() {
   const [pairOpen, setPairOpen] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [showStrategyPlot, setShowStrategyPlot] = useState(true);
+  // PlotConfigurator(freqUI parity):自定义绘图——把策略 dataframe 任意列指派到主图/副图
+  const [plotMode, setPlotMode] = useState<"strategy" | "custom">("strategy");
+  const [customRows, setCustomRows] = useState<
+    { column: string; pane: "main" | "sub"; color: string }[]
+  >([]);
   const [heikinAshi, setHeikinAshi] = useState(false);
   const [indicators, setIndicators] = useState<IndicatorToggles>({
     ma: true,
@@ -187,14 +199,41 @@ export default function ChartPage() {
     return { main, subs };
   }, [plotConfigRaw, history]);
 
+  /** 可绘图列:dataframe 列剔除保留字段与进出信号列(0/1 信号由 markers 表达)。 */
+  const plottableColumns = useMemo(() => {
+    if (!history) return [];
+    const reserved = new Set(["date", "__date_ts", "open", "high", "low", "close", "volume"]);
+    return history.columns.filter(
+      (c) => !reserved.has(c) && !c.startsWith("enter_") && !c.startsWith("exit_"),
+    );
+  }, [history]);
+
+  // 自定义绘图 → 与 strategyPlot 同形,复用同一渲染管道
+  const customPlot = useMemo<StrategyPlot | undefined>(() => {
+    if (plotMode !== "custom" || !history) return undefined;
+    const available = new Set(history.columns);
+    const rows = customRows.filter((r) => r.column && available.has(r.column));
+    const main = rows
+      .filter((r) => r.pane === "main")
+      .map((r, i) => ({ column: r.column, color: r.color || plotPalette(i) }));
+    const subLines = rows
+      .filter((r) => r.pane === "sub")
+      .map((r, i) => ({ column: r.column, color: r.color || plotPalette(i + 2) }));
+    const subs = subLines.length > 0 ? [{ title: "自定义", lines: subLines }] : [];
+    if (main.length === 0 && subs.length === 0) return undefined;
+    return { main, subs };
+  }, [plotMode, customRows, history]);
+
+  const effectivePlot = plotMode === "custom" ? customPlot : strategyPlot;
+
   // timestamp → value maps for the referenced plot columns.
   const plotColumns = useMemo(() => {
-    if (!strategyPlot || !history) return undefined;
+    if (!effectivePlot || !history) return undefined;
     const iTs = history.columns.indexOf("__date_ts");
     if (iTs < 0) return undefined;
     const needed = new Set<string>();
-    strategyPlot.main.forEach((l) => needed.add(l.column));
-    strategyPlot.subs.forEach((s) => s.lines.forEach((l) => needed.add(l.column)));
+    effectivePlot.main.forEach((l) => needed.add(l.column));
+    effectivePlot.subs.forEach((s) => s.lines.forEach((l) => needed.add(l.column)));
     const maps: Record<string, Record<number, number>> = {};
     for (const col of needed) {
       const idx = history.columns.indexOf(col);
@@ -208,7 +247,7 @@ export default function ChartPage() {
       maps[col] = map;
     }
     return maps;
-  }, [strategyPlot, history]);
+  }, [effectivePlot, history]);
 
   const markers = useMemo<ChartMarker[]>(() => {
     if (!effectivePair || bars.length === 0) return [];
@@ -373,6 +412,146 @@ export default function ChartPage() {
             </DropdownMenuContent>
           </DropdownMenu>
 
+          {/* PlotConfigurator(freqUI parity):策略 plot_config 之外的自定义绘图 */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={plotMode === "custom" ? "default" : "outline"}
+                size="sm"
+                aria-label="绘图配置"
+              >
+                <ChartCandlestick className="size-3.5" />
+                绘图{plotMode === "custom" ? "·自定义" : ""}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-80 space-y-3">
+              <div className="flex gap-1.5">
+                {(
+                  [
+                    { v: "strategy", label: "策略配置" },
+                    { v: "custom", label: "自定义" },
+                  ] as const
+                ).map((m) => (
+                  <Button
+                    key={m.v}
+                    type="button"
+                    size="sm"
+                    variant={plotMode === m.v ? "default" : "outline"}
+                    aria-pressed={plotMode === m.v}
+                    onClick={() => setPlotMode(m.v)}
+                  >
+                    {m.label}
+                  </Button>
+                ))}
+              </div>
+              {plotMode === "custom" && (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    把当前策略 dataframe 的任意列绘到主图/副图。
+                  </p>
+                  <div className="space-y-2">
+                    {customRows.map((row, i) => (
+                      <div key={i} className="flex items-center gap-1.5">
+                        <Select
+                          value={row.column}
+                          onValueChange={(v) =>
+                            setCustomRows((prev) =>
+                              prev.map((r, j) => (j === i ? { ...r, column: v } : r)),
+                            )
+                          }
+                        >
+                          <SelectTrigger className="h-8 min-w-0 flex-1 text-xs" aria-label="数据列">
+                            <SelectValue placeholder="选择列" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-56">
+                            {plottableColumns.map((c) => (
+                              <SelectItem key={c} value={c} className="text-xs">
+                                {c}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={row.pane}
+                          onValueChange={(v) =>
+                            setCustomRows((prev) =>
+                              prev.map((r, j) =>
+                                j === i ? { ...r, pane: v as "main" | "sub" } : r,
+                              ),
+                            )
+                          }
+                        >
+                          <SelectTrigger className="h-8 w-20 text-xs" aria-label="窗格">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="main" className="text-xs">
+                              主图
+                            </SelectItem>
+                            <SelectItem value="sub" className="text-xs">
+                              副图
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <input
+                          type="color"
+                          value={row.color || plotPalette(i)}
+                          onChange={(e) =>
+                            setCustomRows((prev) =>
+                              prev.map((r, j) => (j === i ? { ...r, color: e.target.value } : r)),
+                            )
+                          }
+                          className="h-8 w-8 shrink-0 cursor-pointer rounded border"
+                          aria-label="颜色"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 shrink-0"
+                          aria-label="删除该行"
+                          onClick={() => setCustomRows((prev) => prev.filter((_, j) => j !== i))}
+                        >
+                          <Trash2 className="size-3.5 text-destructive" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full gap-1"
+                    disabled={plottableColumns.length === 0}
+                    onClick={() =>
+                      setCustomRows((prev) => [
+                        ...prev,
+                        {
+                          column: plottableColumns[0] ?? "",
+                          pane: "sub",
+                          color: "",
+                        },
+                      ])
+                    }
+                  >
+                    <Plus className="size-3.5" />
+                    添加指标行
+                  </Button>
+                  {plottableColumns.length === 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      当前数据没有可绘制的指标列——先选择交易对加载行情。
+                    </p>
+                  )}
+                </>
+              )}
+              {plotMode === "strategy" && (
+                <p className="text-xs text-muted-foreground">
+                  按策略 plot_config 绘制指标;切到「自定义」可自由组合 dataframe 列。
+                </p>
+              )}
+            </PopoverContent>
+          </Popover>
+
           <div className="ml-auto flex items-center gap-3">
             <div className="flex items-center gap-2">
               <Switch
@@ -490,9 +669,9 @@ export default function ChartPage() {
               dataEpoch={heikinAshi ? "ha" : "raw"}
               signals={signals}
               indicators={indicators}
-              strategyPlot={strategyPlot}
+              strategyPlot={effectivePlot}
               plotColumns={plotColumns}
-              showStrategyPlot={showStrategyPlot}
+              showStrategyPlot={plotMode === "custom" ? true : showStrategyPlot}
               height={560}
             />
           )}

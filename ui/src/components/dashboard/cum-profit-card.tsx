@@ -67,20 +67,24 @@ function CumProfitArea({ points, stake }: { points: CumPoint[]; stake: string })
           strokeLinecap="round"
         />
         {points.map((p, i) => (
-          <circle
-            key={p.date}
-            cx={x(i)}
-            cy={y(p.cum)}
-            r={2.5}
-            className={cn(
-              "opacity-0 transition-opacity hover:opacity-100",
-              positive ? "fill-primary" : "fill-destructive",
-            )}
-          >
-            <title>
-              {`${p.date}\n累计 ${formatProfit(p.cum)} ${stake}\n当日 ${formatProfit(p.dayProfit)} ${stake}`}
-            </title>
-          </circle>
+          <g key={p.date} className="group">
+            {/* 不可见的大热区:小圆点 r=2.5 难以命中(N7) */}
+            <circle cx={x(i)} cy={y(p.cum)} r={8} className="fill-transparent">
+              <title>
+                {`${p.date}\n累计 ${formatProfit(p.cum)} ${stake}\n当日 ${formatProfit(p.dayProfit)} ${stake}`}
+              </title>
+            </circle>
+            <circle
+              cx={x(i)}
+              cy={y(p.cum)}
+              r={2.5}
+              pointerEvents="none"
+              className={cn(
+                "opacity-0 transition-opacity group-hover:opacity-100",
+                positive ? "fill-primary" : "fill-destructive",
+              )}
+            />
+          </g>
         ))}
       </svg>
       <div className="mt-1 flex justify-between text-xs text-muted-foreground tnum">

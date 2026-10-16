@@ -1,6 +1,8 @@
 import { useState, type ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import {
+  Bot,
   ChartCandlestick,
   Download,
   FlaskConical,
@@ -11,15 +13,27 @@ import {
   RefreshCw,
   ScanSearch,
   ScrollText,
+  Settings,
   SlidersHorizontal,
   Tags,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/auth";
+import { TIMEZONE_OPTIONS, useUiSettings } from "@/lib/settings";
 import { useShowConfig, useVersion } from "@/lib/api/hooks";
 import { useLiveUpdates } from "@/lib/api/ws";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -28,6 +42,7 @@ import { BotControlButtons } from "@/components/layout/bot-controls";
 const NAV_ITEMS = [
   { to: "/", label: "概览", icon: LayoutDashboard, end: true },
   { to: "/trades", label: "交易记录", icon: ListOrdered },
+  { to: "/balance", label: "余额", icon: Wallet },
   { to: "/chart", label: "K 线图", icon: ChartCandlestick },
   { to: "/pairs", label: "交易对", icon: Tags },
   { to: "/control", label: "机器人控制", icon: SlidersHorizontal },
@@ -35,6 +50,7 @@ const NAV_ITEMS = [
   { to: "/analysis", label: "策略分析", icon: ScanSearch },
   { to: "/download", label: "数据下载", icon: Download },
   { to: "/logs", label: "日志", icon: ScrollText },
+  { to: "/bots", label: "多机器人", icon: Bot },
 ] as const;
 
 function StateBadge({ state }: { state?: string }) {
@@ -105,6 +121,57 @@ function Brand() {
   );
 }
 
+/** UI 显示设置:时区(freqUI parity;主题由设计规范锁定为单一亮色,不提供切换)。 */
+function SettingsButton() {
+  const timezone = useUiSettings((s) => s.timezone);
+  const setTimezone = useUiSettings((s) => s.setTimezone);
+  const qc = useQueryClient();
+  return (
+    <Popover>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label="显示设置">
+              <Settings className="size-4" />
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent>显示设置</TooltipContent>
+      </Tooltip>
+      <PopoverContent align="end" className="w-64 space-y-3">
+        <div className="text-control font-medium">显示设置</div>
+        <div className="space-y-1.5">
+          <Label htmlFor="tz-select" className="text-xs text-muted-foreground">
+            时区
+          </Label>
+          <Select
+            value={timezone}
+            onValueChange={(tz) => {
+              setTimezone(tz);
+              // 让依赖日期格式化的所有查询数据重渲(轮询界面无需等下个周期)
+              qc.invalidateQueries();
+            }}
+          >
+            <SelectTrigger id="tz-select" aria-label="时区">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {TIMEZONE_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          影响交易记录、日志、回测历史等时间显示。主题由设计规范锁定为亮色。
+        </p>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
@@ -168,6 +235,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="ml-auto flex items-center gap-1.5">
             <BotControlButtons state={config?.state} />
             <Separator orientation="vertical" className="mx-1 h-6" />
+            <SettingsButton />
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

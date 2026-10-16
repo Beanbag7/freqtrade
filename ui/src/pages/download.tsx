@@ -89,6 +89,8 @@ export default function DownloadPage() {
   const [timerange, setTimerange] = useState("");
   const [erase, setErase] = useState(false);
   const [downloadTrades, setDownloadTrades] = useState(false);
+  const [prepend, setPrepend] = useState(false);
+  const [candleTypes, setCandleTypes] = useState<string[]>(["spot"]);
   const [pairPickerOpen, setPairPickerOpen] = useState(false);
 
   const effectiveTimeframes = timeframes.length > 0 ? timeframes : config?.timeframe ? [config.timeframe] : [];
@@ -120,6 +122,8 @@ export default function DownloadPage() {
         ...(rangeMode === "days" ? { days: daysNum } : { timerange: timerange.trim() }),
         erase,
         download_trades: downloadTrades,
+        candle_types: candleTypes,
+        prepend_data: prepend,
       },
       {
         onSuccess: (res) => toast.success(`下载任务已启动 (${res.job_id})`),
@@ -294,6 +298,43 @@ export default function DownloadPage() {
 
             <Separator />
 
+            {/* 数据类型(DownloadDataPayload.candle_types) */}
+            <div className="space-y-1.5">
+              <Label className="text-control">K 线类型</Label>
+              <div className="flex gap-1.5">
+                {[
+                  { v: "spot", label: "现货" },
+                  { v: "futures", label: "合约" },
+                  { v: "mark", label: "标记价格" },
+                ].map((t) => {
+                  const active = candleTypes.includes(t.v);
+                  return (
+                    <Button
+                      key={t.v}
+                      type="button"
+                      variant={active ? "default" : "outline"}
+                      size="sm"
+                      aria-pressed={active}
+                      onClick={() =>
+                        setCandleTypes((prev) =>
+                          active
+                            ? prev.length > 1
+                              ? prev.filter((x) => x !== t.v)
+                              : prev // 至少保留一种
+                            : [...prev, t.v],
+                        )
+                      }
+                    >
+                      {t.label}
+                    </Button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                合约/标记价格仅对合约交易所有意义;现货机器人保持「现货」即可。
+              </p>
+            </div>
+
             {/* Options */}
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-4">
@@ -309,6 +350,13 @@ export default function DownloadPage() {
                   <p className="text-xs text-muted-foreground">删除所选交易对的已有数据文件再下载</p>
                 </div>
                 <Switch id="dl-erase" checked={erase} onCheckedChange={setErase} />
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <Label htmlFor="dl-prepend" className="text-control">向前拼接数据</Label>
+                  <p className="text-xs text-muted-foreground">在已有数据之前补齐更早的历史,而非从当前时间回推</p>
+                </div>
+                <Switch id="dl-prepend" checked={prepend} onCheckedChange={setPrepend} />
               </div>
             </div>
 

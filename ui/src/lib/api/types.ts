@@ -535,11 +535,18 @@ export interface DownloadDataPayload {
   timerange?: string;
   erase?: boolean;
   download_trades?: boolean;
+  candle_types?: string[];
+  prepend_data?: boolean;
 }
 
 export interface BgJobStarted {
   status: string;
   job_id: string;
+}
+
+/** GET /freqaimodels(webserver 模式限定)。 */
+export interface FreqAIModelListResponse {
+  freqaimodels: string[];
 }
 
 /* ------------------------- Pairlist evaluate ------------------------ */

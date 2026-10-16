@@ -39,6 +39,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: lazyPage(() => import("@/pages/dashboard")) },
       { path: "trades", element: lazyPage(() => import("@/pages/trades")) },
+      { path: "balance", element: lazyPage(() => import("@/pages/balance")) },
       { path: "chart", element: lazyPage(() => import("@/pages/chart")) },
       { path: "pairs", element: lazyPage(() => import("@/pages/pairs")) },
       { path: "control", element: lazyPage(() => import("@/pages/control")) },
@@ -46,6 +47,7 @@ export const router = createBrowserRouter([
       { path: "analysis", element: lazyPage(() => import("@/pages/analysis")) },
       { path: "download", element: lazyPage(() => import("@/pages/download")) },
       { path: "logs", element: lazyPage(() => import("@/pages/logs")) },
+      { path: "bots", element: lazyPage(() => import("@/pages/bots")) },
     ],
   },
   { path: "*", element: <Navigate to="/" replace /> },

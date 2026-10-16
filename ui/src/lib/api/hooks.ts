@@ -18,6 +18,7 @@ import type {
   Entry,
   Exit,
   ForceEnterPayload,
+  FreqAIModelListResponse,
   ForceExitPayload,
   Health,
   ListCustomData,
@@ -595,6 +596,16 @@ export const useStartBacktest = () => {
     onSuccess: invalidate,
   });
 };
+
+/** GET /freqaimodels(webserver 模式限定;交易态 503 → 表单降级为手输框)。 */
+export const useFreqAIModels = (opts?: Opts<FreqAIModelListResponse>) =>
+  useQuery({
+    queryKey: ["freqaimodels"],
+    queryFn: () => api<FreqAIModelListResponse>("/freqaimodels"),
+    staleTime: 60_000,
+    retry: 1,
+    ...opts,
+  });
 
 export const useAbortBacktest = () => {
   const invalidate = useInvalidate("backtest-status", "backtest-history");

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { useLogs } from "@/lib/api/hooks";
 import { cn } from "@/lib/utils";
+import { datePartsInTz } from "@/lib/settings";
 import { PageHeader } from "@/components/shared/blocks";
 import { EmptyState, ErrorAlert } from "@/components/shared/states";
 import { Badge } from "@/components/ui/badge";
@@ -20,14 +21,10 @@ const LEVEL_FILTERS: { value: LevelFilter; label: string }[] = [
   { value: "ERROR", label: "ERROR" },
 ];
 
-/** "2026-10-16 09:25:56" → "09:25:56"(tnum 由单元格负责) */
-function formatLogTime(formatted: string): string {
-  const time = formatted.slice(11, 19);
-  if (/^\d{2}:\d{2}:\d{2}$/.test(time)) return time;
-  const d = new Date(formatted);
-  if (Number.isNaN(d.getTime())) return formatted;
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+/** 日志时间:createdMs 是 epoch,按显示时区格式化(formatted 串是服务器本地时区,不可转)。 */
+function formatLogTime(createdMs: number): string {
+  const p = datePartsInTz(new Date(createdMs));
+  return `${p.h}:${p.min}:${p.s}`;
 }
 
 function LevelBadge({ level }: { level: string }) {
@@ -125,9 +122,9 @@ export default function LogsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map(([formatted, createdMs, module, levelName, message], i) => (
+                  {filtered.map(([, createdMs, module, levelName, message], i) => (
                     <TableRow key={`${i}-${createdMs}-${module}`}>
-                      <TableCell className="tnum text-xs whitespace-nowrap">{formatLogTime(formatted)}</TableCell>
+                      <TableCell className="tnum text-xs whitespace-nowrap">{formatLogTime(createdMs)}</TableCell>
                       <TableCell>
                         <LevelBadge level={levelName} />
                       </TableCell>

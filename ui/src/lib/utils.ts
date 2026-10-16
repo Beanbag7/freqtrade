@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { datePartsInTz } from "@/lib/settings";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -50,16 +51,14 @@ export function formatPrice(value: number | null | undefined): string {
 
 export function formatTimestamp(ts: number | null | undefined): string {
   if (!ts) return "—";
-  const d = new Date(ts);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const p = datePartsInTz(new Date(ts));
+  return `${p.y}-${p.m}-${p.day} ${p.h}:${p.min}`;
 }
 
 export function formatDate(ts: number | string | null | undefined): string {
   if (!ts) return "—";
-  const d = new Date(ts);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const p = datePartsInTz(new Date(ts));
+  return `${p.y}-${p.m}-${p.day}`;
 }
 
 /** Human short duration like "3d 4h" / "5h 12m" / "42m" */
