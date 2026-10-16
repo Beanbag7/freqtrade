@@ -1,5 +1,8 @@
+import { useState } from "react";
 import { toast } from "sonner";
+import { XCircle } from "lucide-react";
 import { useAbortBacktest, useBacktestStatus } from "@/lib/api/hooks";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -15,12 +18,30 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-/** Top-of-page card shown only while a backtest job is running. */
+/** Top-of-page card: progress while running, sticky dismissible error on failure. */
 export function BacktestRunningCard() {
   const { data } = useBacktestStatus();
   const abortBacktest = useAbortBacktest();
+  // 以 status_msg 为身份:新一轮回测报错(文案不同)会再次弹出
+  const [dismissedMsg, setDismissedMsg] = useState<string | null>(null);
 
-  if (!data?.running) return null;
+  if (!data?.running) {
+    if (data?.status === "error" && data.status_msg && dismissedMsg !== data.status_msg) {
+      return (
+        <Alert variant="destructive" className="border-destructive/40 bg-card">
+          <XCircle className="size-4" />
+          <AlertTitle>回测失败</AlertTitle>
+          <AlertDescription className="flex flex-wrap items-center gap-3">
+            <span className="min-w-0 flex-1">{data.status_msg}</span>
+            <Button variant="outline" size="sm" onClick={() => setDismissedMsg(data.status_msg ?? null)}>
+              知道了
+            </Button>
+          </AlertDescription>
+        </Alert>
+      );
+    }
+    return null;
+  }
 
   const progress = Math.min(Math.max((data.progress ?? 0) * 100, 0), 100);
 

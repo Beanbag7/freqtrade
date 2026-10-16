@@ -188,6 +188,11 @@ interface CandleChartProps {
   showStrategyPlot?: boolean;
   /** When set (and bars loaded), scroll so this timestamp sits with context. */
   focusTimestamp?: number | null;
+  /**
+   * Bump to force a full data reset when bars are transformed in place
+   * (e.g. Heikin Ashi) without pair/timeframe changing.
+   */
+  dataEpoch?: string | number;
   height?: number;
 }
 
@@ -207,6 +212,7 @@ export function CandleChart({
   plotColumns,
   showStrategyPlot = true,
   focusTimestamp = null,
+  dataEpoch = 0,
   height = 560,
 }: CandleChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -268,12 +274,12 @@ export function CandleChart({
     chart.setPeriod(parseTimeframe(timeframe));
   }, [pair, timeframe]);
 
-  // Data updates: full reset on pair/tf change; incremental otherwise.
+  // Data updates: full reset on pair/tf/epoch change; incremental otherwise.
   const prevKeyRef = useRef("");
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart || bars.length === 0) return;
-    const key = `${pair}|${timeframe}`;
+    const key = `${pair}|${timeframe}|${dataEpoch}`;
     if (prevKeyRef.current !== key) {
       prevKeyRef.current = key;
       chart.resetData();
@@ -282,7 +288,7 @@ export function CandleChart({
     // Same dataset family: push incremental updates without touching scroll.
     const sub = subscribeRef.current;
     if (sub) sub(bars[bars.length - 1]);
-  }, [bars, pair, timeframe]);
+  }, [bars, pair, timeframe, dataEpoch]);
 
   // Trade + signal markers.
   useEffect(() => {

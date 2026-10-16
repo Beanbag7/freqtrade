@@ -487,6 +487,7 @@ export default function ChartPage() {
               timeframe={effectiveTimeframe}
               bars={displayBars}
               markers={markers}
+              dataEpoch={heikinAshi ? "ha" : "raw"}
               signals={signals}
               indicators={indicators}
               strategyPlot={strategyPlot}

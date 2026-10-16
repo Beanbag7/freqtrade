@@ -171,10 +171,16 @@ export type TimeUnit = "daily" | "weekly" | "monthly";
 export const useTimeunitProfit = (unit: TimeUnit, timescale?: number, opts?: Opts<DailyWeeklyMonthly>) =>
   useQuery({
     queryKey: ["timeunit", unit, timescale ?? 0],
-    queryFn: () =>
-      api<DailyWeeklyMonthly>(`/${unit}`, {
+    queryFn: async () => {
+      const res = await api<DailyWeeklyMonthly>(`/${unit}`, {
         query: timescale ? { timescale } : {},
-      }),
+      });
+      // 接口按日期倒序返回;图表消费统一转为升序(左旧右新)
+      return {
+        ...res,
+        data: [...res.data].sort((a, b) => a.date.localeCompare(b.date)),
+      };
+    },
     refetchInterval: POLL_SLOW,
     ...opts,
   });

@@ -53,23 +53,37 @@ const INVALIDATE_MAP: Record<string, string[]> = {
 interface WsMessage {
   type?: string;
   data?: Record<string, unknown>;
+  /** 交易事件广播为扁平载荷,字段在顶层(entry_fill 等,见 freqtradebot 的 msg 组装)。 */
+  [key: string]: unknown;
 }
 
 function toastTradeEvent(msg: WsMessage) {
-  const d = msg.data ?? {};
+  // 交易事件广播是扁平载荷;白名单等请求-响应式消息才有 data 包裹。两种都兼容。
+  const d = (msg.data && typeof msg.data === "object" ? msg.data : msg) as Record<string, unknown>;
   const pair = typeof d.pair === "string" ? d.pair : "?";
-  const rate = typeof d.rate === "number" ? formatPrice(d.rate) : "";
+  const rate =
+    typeof d.close_rate === "number"
+      ? d.close_rate
+      : typeof d.open_rate === "number"
+        ? d.open_rate
+        : typeof d.rate === "number"
+          ? d.rate
+          : null;
   const direction = d.direction === "Short" ? "做空" : "做多";
   switch (msg.type) {
     case "entry":
     case "entry_fill":
-      toast.success(`${direction}开仓 ${pair}`, { description: rate ? `成交价 ${rate}` : undefined });
+      toast.success(`${direction}开仓 ${pair}`, {
+        description: rate !== null ? `价格 ${formatPrice(rate)}` : undefined,
+      });
       break;
     case "exit":
     case "exit_fill": {
       const profit = typeof d.profit_ratio === "number" ? formatPct(d.profit_ratio * 100) : "";
       toast.info(`平仓 ${pair}`, {
-        description: [rate && `成交价 ${rate}`, profit && `收益 ${profit}`].filter(Boolean).join(" · "),
+        description: [rate !== null && `成交价 ${formatPrice(rate)}`, profit && `收益 ${profit}`]
+          .filter(Boolean)
+          .join(" · "),
       });
       break;
     }

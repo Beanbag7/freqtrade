@@ -193,7 +193,8 @@ export default function DownloadPage() {
                     <CommandList>
                       <CommandEmpty>无匹配市场</CommandEmpty>
                       <CommandGroup>
-                        {marketPairs.slice(0, 200).map((pair) => (
+                        {/* 不截断:OKX USDT 对超过 300 个,截断会让靠后的交易对永远搜不到 */}
+                        {marketPairs.map((pair) => (
                           <CommandItem
                             key={pair}
                             value={pair}

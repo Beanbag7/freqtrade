@@ -64,6 +64,18 @@ function extractSummary(backtestResult: unknown): LooseRecord | null {
   return null;
 }
 
+/** 分析页签用完整策略明细(periodic_breakdown 等只在 strategy 字典里,comparison 行没有)。 */
+function extractStrategyDetail(backtestResult: unknown): LooseRecord | null {
+  if (!backtestResult || typeof backtestResult !== "object") return null;
+  const stratMap = (backtestResult as LooseRecord).strategy;
+  if (stratMap && typeof stratMap === "object") {
+    const keys = Object.keys(stratMap as LooseRecord);
+    const first = keys.length > 0 ? (stratMap as LooseRecord)[keys[0]] : null;
+    if (first && typeof first === "object") return first as LooseRecord;
+  }
+  return null;
+}
+
 /** 胜率启发式:0-1 当作比率,>1 当作百分数。 */
 function formatWinrate(value: number | null): string {
   if (value === null) return "—";
@@ -152,8 +164,8 @@ interface PeriodRow {
   profitFactor: number | null;
 }
 
-function periodRows(summary: LooseRecord | null, period: "day" | "week" | "month"): PeriodRow[] {
-  const pb = summary?.periodic_breakdown;
+function periodRows(stats: LooseRecord | null, period: "day" | "week" | "month"): PeriodRow[] {
+  const pb = stats?.periodic_breakdown;
   if (!pb || typeof pb !== "object") return [];
   return looseArr(pb, period)
     .filter((r) => r && typeof r === "object")
@@ -207,10 +219,10 @@ function PeriodTable({ rows }: { rows: PeriodRow[] }) {
 }
 
 /** 分时段盈亏 + 按标签/退出原因分析(对齐旧 freqUI 的回测分析页签)。 */
-function ResultAnalysis({ summary }: { summary: LooseRecord | null }) {
-  const enterTags = tagRows(summary, "results_per_enter_tag");
-  const exitReasons = tagRows(summary, "exit_reason_summary");
-  const mixTags = tagRows(summary, "mix_tag_stats");
+function ResultAnalysis({ stats }: { stats: LooseRecord | null }) {
+  const enterTags = tagRows(stats, "results_per_enter_tag");
+  const exitReasons = tagRows(stats, "exit_reason_summary");
+  const mixTags = tagRows(stats, "mix_tag_stats");
   return (
     <Card className="shadow-xs">
       <CardHeader>
@@ -227,13 +239,13 @@ function ResultAnalysis({ summary }: { summary: LooseRecord | null }) {
             {mixTags.length > 0 && <TabsTrigger value="mix_tag">混合标签</TabsTrigger>}
           </TabsList>
           <TabsContent value="day">
-            <PeriodTable rows={periodRows(summary, "day")} />
+            <PeriodTable rows={periodRows(stats, "day")} />
           </TabsContent>
           <TabsContent value="week">
-            <PeriodTable rows={periodRows(summary, "week")} />
+            <PeriodTable rows={periodRows(stats, "week")} />
           </TabsContent>
           <TabsContent value="month">
-            <PeriodTable rows={periodRows(summary, "month")} />
+            <PeriodTable rows={periodRows(stats, "month")} />
           </TabsContent>
           <TabsContent value="enter_tag">
             <TagTable rows={enterTags} keyLabel="进场标签" />
@@ -256,6 +268,7 @@ function ResultAnalysis({ summary }: { summary: LooseRecord | null }) {
 
 function ResultBody({ backtestResult, file }: { backtestResult: LooseRecord; file: string }) {
   const summary = extractSummary(backtestResult);
+  const strategyDetail = extractStrategyDetail(backtestResult);
   const comparison = looseArr(backtestResult, "strategy_comparison");
 
   const totalTrades = summary ? (looseNum(summary, "total_trades") ?? looseNum(summary, "trades")) : null;
@@ -359,7 +372,7 @@ function ResultBody({ backtestResult, file }: { backtestResult: LooseRecord; fil
 
       <BacktestResultChart backtestResult={backtestResult} />
 
-      <ResultAnalysis summary={summary} />
+      <ResultAnalysis stats={strategyDetail} />
 
       <Card className="shadow-xs">
         <CardHeader>

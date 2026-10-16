@@ -1,4 +1,4 @@
-import { useState, type MouseEvent } from "react";
+import { useState, type KeyboardEvent, type MouseEvent } from "react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/table";
 import { ProfitText } from "@/components/shared/blocks";
 import { EmptyState, ErrorAlert } from "@/components/shared/states";
+import { TradeDetailSheet } from "@/components/trades/trade-detail-sheet";
 import { useForceExit, useOpenTrades } from "@/lib/api/hooks";
 import type { OpenTrade } from "@/lib/api/types";
 import { formatDuration, formatPrice } from "@/lib/utils";
@@ -101,10 +102,24 @@ function ForceExitButton({ trade }: { trade: OpenTrade }) {
 
 const HEAD_CLASS = "text-xs font-medium text-muted-foreground";
 
-/** Open positions table with per-row force-exit confirmation. */
+/** Open positions table; rows open the trade-detail sheet (freqUI parity). */
 export function OpenTradesCard() {
   const { data, isLoading, isError, error, refetch } = useOpenTrades();
   const trades = data ?? [];
+  const [selected, setSelected] = useState<OpenTrade | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  const onSelect = (trade: OpenTrade) => {
+    setSelected(trade);
+    setSheetOpen(true);
+  };
+  const activate = (trade: OpenTrade) => () => onSelect(trade);
+  const onKey = (trade: OpenTrade) => (e: KeyboardEvent<HTMLTableRowElement>) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onSelect(trade);
+    }
+  };
 
   return (
     <Card className="shadow-xs">
@@ -139,7 +154,14 @@ export function OpenTradesCard() {
               {trades.map((t) => {
                 const profitPct = t.profit_ratio === undefined ? undefined : t.profit_ratio * 100;
                 return (
-                  <TableRow key={t.trade_id}>
+                  <TableRow
+                    key={t.trade_id}
+                    tabIndex={0}
+                    aria-label={`查看交易 ${t.trade_id} 详情`}
+                    className="cursor-pointer hover:bg-accent/50 focus-visible:bg-accent/50 focus-visible:outline-none"
+                    onClick={activate(t)}
+                    onKeyDown={onKey(t)}
+                  >
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <span className="text-control font-medium">{t.pair}</span>
@@ -155,7 +177,11 @@ export function OpenTradesCard() {
                     <TableCell className="tnum text-right text-muted-foreground">
                       {formatDuration(Date.now() - t.open_timestamp)}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell
+                      className="text-right"
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    >
                       <ForceExitButton trade={t} />
                     </TableCell>
                   </TableRow>
@@ -164,6 +190,7 @@ export function OpenTradesCard() {
             </TableBody>
           </Table>
         )}
+        <TradeDetailSheet trade={selected} open={sheetOpen} onOpenChange={setSheetOpen} />
       </CardContent>
     </Card>
   );
