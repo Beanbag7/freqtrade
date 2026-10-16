@@ -6,17 +6,18 @@ import {
   formatPct,
   formatRatioAsPct,
 } from "@/lib/utils";
+import { BacktestResultChart } from "@/components/backtest/result-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmptyState, ErrorAlert } from "@/components/shared/states";
 import { ProfitText, StatCard } from "@/components/shared/blocks";
 
-type LooseRecord = Record<string, unknown>;
+export type LooseRecord = Record<string, unknown>;
 
 /* ----------------------- 宽松字段访问(后端字段可能缺失) ----------------------- */
 
-function looseNum(obj: unknown, key: string): number | null {
+export function looseNum(obj: unknown, key: string): number | null {
   if (obj && typeof obj === "object") {
     const v = (obj as LooseRecord)[key];
     if (typeof v === "number" && Number.isFinite(v)) return v;
@@ -24,7 +25,7 @@ function looseNum(obj: unknown, key: string): number | null {
   return null;
 }
 
-function looseStr(obj: unknown, key: string): string | null {
+export function looseStr(obj: unknown, key: string): string | null {
   if (obj && typeof obj === "object") {
     const v = (obj as LooseRecord)[key];
     if (typeof v === "string" && v.length > 0) return v;
@@ -32,7 +33,7 @@ function looseStr(obj: unknown, key: string): string | null {
   return null;
 }
 
-function looseArr(obj: unknown, key: string): unknown[] {
+export function looseArr(obj: unknown, key: string): unknown[] {
   if (obj && typeof obj === "object") {
     const v = (obj as LooseRecord)[key];
     if (Array.isArray(v)) return v;
@@ -81,7 +82,7 @@ function ResultBody({ backtestResult, file }: { backtestResult: LooseRecord; fil
   const summary = extractSummary(backtestResult);
   const comparison = looseArr(backtestResult, "strategy_comparison");
 
-  const totalTrades = summary ? looseNum(summary, "total_trades") : null;
+  const totalTrades = summary ? (looseNum(summary, "total_trades") ?? looseNum(summary, "trades")) : null;
   const profitTotalAbs = summary ? looseNum(summary, "profit_total_abs") : null;
   const winrate = summary ? looseNum(summary, "winrate") : null;
   const maxDrawdownAbs = summary ? looseNum(summary, "max_drawdown_abs") : null;
@@ -90,7 +91,7 @@ function ResultBody({ backtestResult, file }: { backtestResult: LooseRecord; fil
     .filter((row) => row && typeof row === "object")
     .map((row) => ({
       strategy: looseStr(row, "strategy") ?? "—",
-      totalTrades: looseNum(row, "total_trades"),
+      totalTrades: looseNum(row, "total_trades") ?? looseNum(row, "trades"),
       profitTotalAbs: looseNum(row, "profit_total_abs"),
       profitTotal: looseNum(row, "profit_total"),
       winrate: looseNum(row, "winrate"),
@@ -180,6 +181,8 @@ function ResultBody({ backtestResult, file }: { backtestResult: LooseRecord; fil
         </Card>
       )}
 
+      <BacktestResultChart backtestResult={backtestResult} />
+
       <Card className="shadow-xs">
         <CardHeader>
           <CardTitle className="text-base">按交易对</CardTitle>
@@ -232,15 +235,21 @@ function ResultBody({ backtestResult, file }: { backtestResult: LooseRecord; fil
   );
 }
 
-export function BacktestResultDetail({ selectedFile }: { selectedFile: string | null }) {
-  if (!selectedFile) {
+export function BacktestResultDetail({
+  selectedFile,
+  strategy,
+}: {
+  selectedFile: string | null;
+  strategy: string | null;
+}) {
+  if (!selectedFile || !strategy) {
     return <EmptyState title="从左侧选择一个回测结果" description="选择后可查看汇总、策略对比与按交易对明细" />;
   }
-  return <ResultFileDetail file={selectedFile} />;
+  return <ResultFileDetail file={selectedFile} strategy={strategy} />;
 }
 
-function ResultFileDetail({ file }: { file: string }) {
-  const result = useBacktestResultFile(file);
+function ResultFileDetail({ file, strategy }: { file: string; strategy: string }) {
+  const result = useBacktestResultFile(file, strategy);
   const backtestResult = result.data?.backtest_result ?? null;
   const status = result.data?.status;
 

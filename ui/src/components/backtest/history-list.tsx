@@ -35,7 +35,7 @@ import { EmptyState, ErrorAlert } from "@/components/shared/states";
 
 interface BacktestHistoryListProps {
   selectedFile: string | null;
-  onSelect: (file: string | null) => void;
+  onSelect: (entry: BacktestHistoryEntry | null) => void;
 }
 
 function HistoryRow({
@@ -167,7 +167,7 @@ export function BacktestHistoryList({ selectedFile, onSelect }: BacktestHistoryL
                   key={entry.filename}
                   entry={entry}
                   active={entry.filename === selectedFile}
-                  onSelect={() => onSelect(entry.filename)}
+                  onSelect={() => onSelect(entry)}
                   onEdit={() => openEdit(entry)}
                   onDelete={() => setDeleting(entry)}
                 />

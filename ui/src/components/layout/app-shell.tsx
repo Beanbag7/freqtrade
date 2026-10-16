@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router";
 import {
   ChartCandlestick,
+  Download,
   FlaskConical,
   LayoutDashboard,
   ListOrdered,
@@ -15,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/auth";
 import { useShowConfig, useVersion } from "@/lib/api/hooks";
+import { useLiveUpdates } from "@/lib/api/ws";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -29,6 +31,7 @@ const NAV_ITEMS = [
   { to: "/pairs", label: "交易对", icon: Tags },
   { to: "/control", label: "机器人控制", icon: SlidersHorizontal },
   { to: "/backtest", label: "回测", icon: FlaskConical },
+  { to: "/download", label: "数据下载", icon: Download },
   { to: "/logs", label: "日志", icon: ScrollText },
 ] as const;
 
@@ -106,6 +109,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const logout = useAuthStore((s) => s.logout);
   const { data: config } = useShowConfig();
   const { data: version } = useVersion();
+  useLiveUpdates();
 
   const handleLogout = () => {
     logout();

@@ -185,6 +185,8 @@ interface CandleChartProps {
   /** column name → (timestamp → value) maps for strategyPlot columns. */
   plotColumns?: Record<string, Record<number, number>>;
   showStrategyPlot?: boolean;
+  /** When set (and bars loaded), scroll so this timestamp sits with context. */
+  focusTimestamp?: number | null;
   height?: number;
 }
 
@@ -203,6 +205,7 @@ export function CandleChart({
   strategyPlot,
   plotColumns,
   showStrategyPlot = true,
+  focusTimestamp = null,
   height = 560,
 }: CandleChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -211,6 +214,7 @@ export function CandleChart({
   const subscribeRef = useRef<((bar: KLineData) => void) | null>(null);
   const indicatorPanesRef = useRef<{ paneId: string; name: string }[]>([]);
   const plotPanesRef = useRef<string[]>([]);
+  const focusFiredRef = useRef<number | null>(null);
 
   // Keep barsRef current so getBars always serves the freshest dataset.
   barsRef.current = bars;
@@ -302,6 +306,17 @@ export function CandleChart({
       });
     }
   }, [markers, signals, bars]);
+
+  // Focus scroll: jump to a timestamp once per value change (backtest review
+  // uses it to land on the first trade instead of the range tail).
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart || !focusTimestamp || bars.length < 2) return;
+    if (focusFiredRef.current === focusTimestamp) return;
+    focusFiredRef.current = focusTimestamp;
+    const step = bars[1].timestamp - bars[0].timestamp;
+    chart.scrollToTimestamp(focusTimestamp - 30 * step, 0);
+  }, [focusTimestamp, bars]);
 
   // Indicator panes.
   useEffect(() => {

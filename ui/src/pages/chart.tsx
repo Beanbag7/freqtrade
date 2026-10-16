@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import { Check, ChevronsUpDown, RefreshCw, SlidersHorizontal } from "lucide-react";
-import type { KLineData } from "klinecharts";
 import { PageHeader } from "@/components/shared/blocks";
 import { EmptyState, ErrorAlert } from "@/components/shared/states";
 import { Button } from "@/components/ui/button";
@@ -39,10 +38,9 @@ import {
   CandleChart,
   type ChartMarker,
   type IndicatorToggles,
-  type SignalMarker,
   type StrategyPlot,
 } from "@/components/chart/candle-chart";
-import type { TradeMarkerKind } from "@/lib/chart/overlays";
+import { cssVar, mapPairHistory } from "@/lib/chart/pair-history";
 
 const TIMEFRAMES = ["1m", "5m", "15m", "30m", "1h", "4h", "1d"] as const;
 
@@ -54,16 +52,6 @@ const INDICATOR_LABELS: Record<keyof IndicatorToggles, string> = {
   macd: "MACD",
   rsi: "RSI",
 };
-
-interface MappedCandles {
-  bars: KLineData[];
-  signals: SignalMarker[];
-}
-
-function cssVar(name: string, fallback: string): string {
-  if (typeof window === "undefined") return fallback;
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
-}
 
 /** Palette rotation for strategy plot_config lines (theme family). */
 function plotPalette(i: number): string {
@@ -90,53 +78,6 @@ function resolvePlotColor(raw: unknown, fallback: string): string {
   if (INVISIBLE_COLORS.has(c)) return fallback;
   if (/^#(?:fff|ffff|ffffff|f[0-9a-f]{5})/i.test(c)) return fallback;
   return raw;
-}
-
-/** Map freqtrade PairHistory rows to klinecharts bars + strategy signal markers. */
-function mapPairHistory(history: PairHistory | undefined): MappedCandles {
-  if (!history) return { bars: [], signals: [] };
-  const cols = history.columns;
-  const idx = (name: string) => cols.indexOf(name);
-  const iTs = idx("__date_ts");
-  const iOpen = idx("open");
-  const iHigh = idx("high");
-  const iLow = idx("low");
-  const iClose = idx("close");
-  const iVol = idx("volume");
-  if (iTs < 0 || iOpen < 0 || iClose < 0) return { bars: [], signals: [] };
-
-  const up = cssVar("--chart-up", "#245b47");
-  const down = cssVar("--chart-down", "#b96359");
-  const muted = cssVar("--muted-foreground", "#52645a");
-
-  const bars: KLineData[] = [];
-  const signals: SignalMarker[] = [];
-  const signalCols: { i: number; kind: TradeMarkerKind; color: string }[] = [
-    { i: idx("_enter_long_signal_close"), kind: "open-long", color: up },
-    { i: idx("_exit_long_signal_close"), kind: "close-long", color: down },
-    { i: idx("_enter_short_signal_close"), kind: "open-short", color: down },
-    { i: idx("_exit_short_signal_close"), kind: "close-short", color: muted },
-  ];
-
-  for (const row of history.data) {
-    const ts = Number(row[iTs]);
-    const open = Number(row[iOpen]);
-    const high = Number(row[iHigh]);
-    const low = Number(row[iLow]);
-    const close = Number(row[iClose]);
-    if (!ts || Number.isNaN(open) || Number.isNaN(close) || Number.isNaN(high) || Number.isNaN(low)) {
-      continue;
-    }
-    bars.push({ timestamp: ts, open, high, low, close, volume: Number(row[iVol]) || 0 });
-    for (const s of signalCols) {
-      if (s.i < 0) continue;
-      const v = row[s.i];
-      if (v !== null && v !== undefined && !Number.isNaN(Number(v))) {
-        signals.push({ timestamp: ts, value: Number(v), kind: s.kind, color: s.color });
-      }
-    }
-  }
-  return { bars, signals };
 }
 
 export default function ChartPage() {
