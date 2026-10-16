@@ -34,6 +34,26 @@ export const TIMEZONE_OPTIONS: { value: string; label: string }[] = [
   { value: "America/Los_Angeles", label: "America/Los_Angeles" },
 ];
 
+/** 按 tz 缓存 formatter:日志页 300 行重渲时避免每行重建 Intl.DateTimeFormat。 */
+const fmtCache = new Map<string, Intl.DateTimeFormat>();
+function tzFormatter(tz: string): Intl.DateTimeFormat {
+  let f = fmtCache.get(tz);
+  if (!f) {
+    f = new Intl.DateTimeFormat("en-CA", {
+      timeZone: tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
+    fmtCache.set(tz, f);
+  }
+  return f;
+}
+
 /** 取出 Date 在目标时区下的各字段(补零字符串)。 */
 export function datePartsInTz(d: Date): {
   y: string;
@@ -56,20 +76,7 @@ export function datePartsInTz(d: Date): {
     };
   }
   try {
-    const parts = Object.fromEntries(
-      new Intl.DateTimeFormat("en-CA", {
-        timeZone: tz,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false,
-      })
-        .formatToParts(d)
-        .map((p) => [p.type, p.value]),
-    );
+    const parts = Object.fromEntries(tzFormatter(tz).formatToParts(d).map((p) => [p.type, p.value]));
     // en-CA hour12:false 午夜可能给出 "24"
     return {
       y: parts.year ?? "0000",

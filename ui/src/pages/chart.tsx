@@ -396,7 +396,7 @@ export default function ChartPage() {
                   {INDICATOR_LABELS[key]}
                 </DropdownMenuCheckboxItem>
               ))}
-              {strategyPlot && (
+              {plotMode === "strategy" && strategyPlot && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuLabel>策略</DropdownMenuLabel>
@@ -529,7 +529,9 @@ export default function ChartPage() {
                         {
                           column: plottableColumns[0] ?? "",
                           pane: "sub",
-                          color: "",
+                          // 添加时即固定调色(而非渲染期按过滤后索引分配),
+                          // 保证色样与实际渲染色一致
+                          color: plotPalette(prev.length),
                         },
                       ])
                     }
@@ -540,6 +542,11 @@ export default function ChartPage() {
                   {plottableColumns.length === 0 && (
                     <p className="text-xs text-muted-foreground">
                       当前数据没有可绘制的指标列——先选择交易对加载行情。
+                    </p>
+                  )}
+                  {customRows.some((r) => r.column && !plottableColumns.includes(r.column)) && (
+                    <p className="text-xs text-warning">
+                      部分行引用的列不在当前数据中(换交易对/粒度后失效),已自动跳过。
                     </p>
                   )}
                 </>

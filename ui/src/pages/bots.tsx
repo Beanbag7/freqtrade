@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleCheck, LoaderCircle, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   fetchBotSummary,
+  genId,
   testBotConnection,
   useBotRegistry,
   type BotDescriptor,
@@ -171,15 +172,15 @@ function AddBotDialog() {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    const bot: BotDescriptor = {
-      id: crypto.randomUUID(),
-      name: name.trim() || apiUrl.trim(),
-      apiUrl: apiUrl.trim().replace(/\/+$/, ""),
-      username: username.trim(),
-      password,
-    };
     setTesting(true);
     try {
+      const bot: BotDescriptor = {
+        id: genId(),
+        name: name.trim() || apiUrl.trim(),
+        apiUrl: apiUrl.trim().replace(/\/+$/, ""),
+        username: username.trim(),
+        password,
+      };
       const version = await testBotConnection(bot);
       addBot(bot);
       toast.success(`已添加 ${bot.name}(freqtrade v${version})`);
@@ -263,6 +264,7 @@ function AddBotDialog() {
 export default function BotsPage() {
   const bots = useBotRegistry((s) => s.bots);
   const removeBot = useBotRegistry((s) => s.removeBot);
+  const qc = useQueryClient();
   const [pendingRemove, setPendingRemove] = useState<BotDescriptor | null>(null);
 
   return (
@@ -345,6 +347,7 @@ export default function BotsPage() {
               onClick={() => {
                 if (pendingRemove) {
                   removeBot(pendingRemove.id);
+                  qc.removeQueries({ queryKey: ["bot-summary", pendingRemove.id] });
                   toast.success(`已移除 ${pendingRemove.name}`);
                 }
                 setPendingRemove(null);

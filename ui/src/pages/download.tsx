@@ -354,7 +354,10 @@ export default function DownloadPage() {
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <Label htmlFor="dl-prepend" className="text-control">向前拼接数据</Label>
-                  <p className="text-xs text-muted-foreground">在已有数据之前补齐更早的历史,而非从当前时间回推</p>
+                  <p className="text-xs text-muted-foreground">
+                    在已有数据之前补齐更早的历史,而非从当前时间回推
+                    {erase && prepend && "(「清空后重新下载」已开启时本项不生效)"}
+                  </p>
                 </div>
                 <Switch id="dl-prepend" checked={prepend} onCheckedChange={setPrepend} />
               </div>

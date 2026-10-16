@@ -30,7 +30,11 @@ export const useBotRegistry = create<BotRegistryState>()(
     (set) => ({
       bots: [],
       addBot: (b) => set((s) => ({ bots: [...s.bots.filter((x) => x.id !== b.id), b] })),
-      updateBot: (b) => set((s) => ({ bots: s.bots.map((x) => (x.id === b.id ? b : x)) })),
+      updateBot: (b) => {
+        // 凭据可能变化,旧 token 一并作废
+        tokenCache.delete(b.id);
+        return set((s) => ({ bots: s.bots.map((x) => (x.id === b.id ? b : x)) }));
+      },
       removeBot: (id) => {
         tokenCache.delete(id);
         return set((s) => ({ bots: s.bots.filter((x) => x.id !== id) }));
@@ -50,6 +54,16 @@ interface TokenPair {
 /** 令牌缓存仅驻留内存(密码已持久化,令牌没必要再落盘)。 */
 const tokenCache = new Map<string, TokenPair>();
 
+/** 登录请求 in-flight 去重:冷启动 4 个端点并发时只登录一次。 */
+const loginInflight = new Map<string, Promise<TokenPair>>();
+
+/** 非安全上下文(http://局域网IP)没有 crypto.randomUUID,用 getRandomValues 兜底。 */
+export function genId(): string {
+  const buf = new Uint8Array(8);
+  crypto.getRandomValues(buf);
+  return [...buf].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export class BotApiError extends Error {
   status?: number;
   constructor(message: string, status?: number) {
@@ -58,7 +72,25 @@ export class BotApiError extends Error {
   }
 }
 
-const normalizeUrl = (apiUrl: string) => apiUrl.replace(/\/+$/, "");
+const normalizeUrl = (apiUrl: string) => {
+  // 剥离可能误粘进地址的 userinfo(http://user:pass@host),避免凭据被持久化/渲染
+  try {
+    const u = new URL(apiUrl);
+    u.username = "";
+    u.password = "";
+    return u.origin + u.pathname.replace(/\/+$/, "");
+  } catch {
+    return apiUrl.replace(/\/+$/, "");
+  }
+};
+
+/** freqtrade Basic 以 ASCII 解码;非 ASCII 凭证在浏览器侧先拦下,给出正确提示。 */
+function assertAsciiCredentials(username: string, password: string) {
+  const nonAscii = [...`${username}:${password}`].some((c) => (c.codePointAt(0) ?? 0) > 0x7f);
+  if (nonAscii) {
+    throw new BotApiError("freqtrade 的 HTTP Basic 认证仅支持 ASCII 字符,用户名/密码含非 ASCII 字符。");
+  }
+}
 
 /** 网络层失败(CORS 拦截/断网/目标离线)统一翻译成可操作提示。 */
 function wrapNetworkError(e: unknown): never {
@@ -69,22 +101,33 @@ function wrapNetworkError(e: unknown): never {
 }
 
 async function botLogin(bot: BotDescriptor): Promise<TokenPair> {
-  let res: Response;
+  assertAsciiCredentials(bot.username, bot.password);
+  const inflight = loginInflight.get(bot.id);
+  if (inflight) return inflight;
+  const p = (async () => {
+    let res: Response;
+    try {
+      res = await fetch(`${normalizeUrl(bot.apiUrl)}/api/v1/token/login`, {
+        method: "POST",
+        headers: { Authorization: `Basic ${btoa(`${bot.username}:${bot.password}`)}` },
+      });
+    } catch (e) {
+      wrapNetworkError(e);
+    }
+    if (!res!.ok) {
+      throw new BotApiError(`登录失败 (HTTP ${res!.status})——检查用户名密码`, res!.status);
+    }
+    const data = (await res!.json()) as { access_token: string; refresh_token: string };
+    const tokens = { accessToken: data.access_token, refreshToken: data.refresh_token };
+    tokenCache.set(bot.id, tokens);
+    return tokens;
+  })();
+  loginInflight.set(bot.id, p);
   try {
-    res = await fetch(`${normalizeUrl(bot.apiUrl)}/api/v1/token/login`, {
-      method: "POST",
-      headers: { Authorization: `Basic ${btoa(`${bot.username}:${bot.password}`)}` },
-    });
-  } catch (e) {
-    wrapNetworkError(e);
+    return await p;
+  } finally {
+    loginInflight.delete(bot.id);
   }
-  if (!res!.ok) {
-    throw new BotApiError(`登录失败 (HTTP ${res!.status})——检查用户名密码`, res!.status);
-  }
-  const data = (await res!.json()) as { access_token: string; refresh_token: string };
-  const tokens = { accessToken: data.access_token, refreshToken: data.refresh_token };
-  tokenCache.set(bot.id, tokens);
-  return tokens;
 }
 
 async function botRefresh(bot: BotDescriptor, refreshToken: string): Promise<TokenPair | null> {
@@ -176,7 +219,8 @@ export async function fetchBotSummary(bot: BotDescriptor): Promise<BotSummary> {
   const balance = balanceR.status === "fulfilled" ? balanceR.value : null;
   return {
     botName: config?.bot_name ?? bot.name,
-    state: config?.state ?? "unknown",
+    // webserver 模式 show_config.state 为空串——空串落「未知」(muted)而非红色「已停止」
+    state: config?.state || "unknown",
     dryRun: config?.dry_run ?? false,
     openTrades: Array.isArray(status) ? status.length : null,
     closedProfit: profit?.profit_closed_coin ?? null,

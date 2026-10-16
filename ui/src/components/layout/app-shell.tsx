@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router";
-import { useQueryClient } from "@tanstack/react-query";
 import {
   Bot,
   ChartCandlestick,
@@ -125,7 +124,6 @@ function Brand() {
 function SettingsButton() {
   const timezone = useUiSettings((s) => s.timezone);
   const setTimezone = useUiSettings((s) => s.setTimezone);
-  const qc = useQueryClient();
   return (
     <Popover>
       <Tooltip>
@@ -147,9 +145,9 @@ function SettingsButton() {
           <Select
             value={timezone}
             onValueChange={(tz) => {
+              // AppShell 以 timezone 为 key 重挂内容区,所有日期格式化立即按新时区重渲
+              // (不依赖查询失效——structural sharing 下失效重取不保证重渲)
               setTimezone(tz);
-              // 让依赖日期格式化的所有查询数据重渲(轮询界面无需等下个周期)
-              qc.invalidateQueries();
             }}
           >
             <SelectTrigger id="tz-select" aria-label="时区">
@@ -176,6 +174,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const logout = useAuthStore((s) => s.logout);
+  const timezone = useUiSettings((s) => s.timezone);
   const { data: config } = useShowConfig();
   const { data: version } = useVersion();
   useLiveUpdates();
@@ -260,7 +259,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main className="min-w-0 flex-1 p-4 md:p-6">{children}</main>
+        {/* key=timezone:时区切换时整树重挂,日期格式化立即生效(查询缓存不受影响) */}
+        <main key={timezone} className="min-w-0 flex-1 p-4 md:p-6">
+          {children}
+        </main>
       </div>
     </div>
   );
