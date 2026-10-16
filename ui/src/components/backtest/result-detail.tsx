@@ -7,6 +7,7 @@ import {
   formatRatioAsPct,
 } from "@/lib/utils";
 import { BacktestResultChart } from "@/components/backtest/result-chart";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -74,6 +75,181 @@ function toneFor(value: number | null): "neutral" | "profit" | "loss" {
   if (value > 0) return "profit";
   if (value < 0) return "loss";
   return "neutral";
+}
+
+/* ------------------------------ 分析页签 ------------------------------ */
+
+interface TagRow {
+  key: string;
+  trades: number | null;
+  profitMeanPct: number | null;
+  profitTotalAbs: number | null;
+  profitTotalPct: number | null;
+  durationAvg: string | null;
+}
+
+function tagRows(summary: LooseRecord | null, field: string): TagRow[] {
+  return (summary ? looseArr(summary, field) : [])
+    .filter((r) => r && typeof r === "object")
+    .map((r) => ({
+      key: looseStr(r, "key") || "(无标签)",
+      trades: looseNum(r, "trades"),
+      profitMeanPct: looseNum(r, "profit_mean_pct"),
+      profitTotalAbs: looseNum(r, "profit_total_abs"),
+      profitTotalPct: looseNum(r, "profit_total_pct"),
+      durationAvg: looseStr(r, "duration_avg"),
+    }))
+    .sort((a, b) => Math.abs(b.profitTotalAbs ?? 0) - Math.abs(a.profitTotalAbs ?? 0));
+}
+
+function TagTable({ rows, keyLabel }: { rows: TagRow[]; keyLabel: string }) {
+  if (rows.length === 0) return <EmptyState title="没有该维度的数据" />;
+  return (
+    <div className="overflow-x-auto">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="text-xs font-medium text-muted-foreground">{keyLabel}</TableHead>
+            <TableHead className="text-right text-xs font-medium text-muted-foreground">笔数</TableHead>
+            <TableHead className="text-right text-xs font-medium text-muted-foreground">平均盈亏%</TableHead>
+            <TableHead className="text-right text-xs font-medium text-muted-foreground">总盈亏</TableHead>
+            <TableHead className="text-right text-xs font-medium text-muted-foreground">总盈亏%</TableHead>
+            <TableHead className="text-right text-xs font-medium text-muted-foreground">平均持仓</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row) => (
+            <TableRow key={row.key}>
+              <TableCell className="font-medium">{row.key}</TableCell>
+              <TableCell className="tnum text-right text-sm">
+                {row.trades === null ? "—" : formatNumber(row.trades, 0)}
+              </TableCell>
+              <TableCell className="tnum text-right text-sm">
+                {row.profitMeanPct === null ? "—" : formatPct(row.profitMeanPct)}
+              </TableCell>
+              <TableCell className="text-right text-sm">
+                <ProfitText value={row.profitTotalAbs} />
+              </TableCell>
+              <TableCell className="tnum text-right text-sm">
+                {row.profitTotalPct === null ? "—" : formatPct(row.profitTotalPct)}
+              </TableCell>
+              <TableCell className="tnum text-right text-sm">{row.durationAvg ?? "—"}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+interface PeriodRow {
+  date: string;
+  trades: number | null;
+  wins: number | null;
+  draws: number | null;
+  losses: number | null;
+  profitAbs: number | null;
+  profitFactor: number | null;
+}
+
+function periodRows(summary: LooseRecord | null, period: "day" | "week" | "month"): PeriodRow[] {
+  const pb = summary?.periodic_breakdown;
+  if (!pb || typeof pb !== "object") return [];
+  return looseArr(pb, period)
+    .filter((r) => r && typeof r === "object")
+    .map((r) => ({
+      date: looseStr(r, "date") ?? "—",
+      trades: looseNum(r, "trades"),
+      wins: looseNum(r, "wins"),
+      draws: looseNum(r, "draws"),
+      losses: looseNum(r, "losses"),
+      profitAbs: looseNum(r, "profit_abs"),
+      profitFactor: looseNum(r, "profit_factor"),
+    }));
+}
+
+function PeriodTable({ rows }: { rows: PeriodRow[] }) {
+  if (rows.length === 0) return <EmptyState title="没有该周期的数据" />;
+  return (
+    <div className="overflow-x-auto">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="text-xs font-medium text-muted-foreground">周期</TableHead>
+            <TableHead className="text-right text-xs font-medium text-muted-foreground">笔数</TableHead>
+            <TableHead className="text-right text-xs font-medium text-muted-foreground">胜/平/负</TableHead>
+            <TableHead className="text-right text-xs font-medium text-muted-foreground">盈亏</TableHead>
+            <TableHead className="text-right text-xs font-medium text-muted-foreground">盈利因子</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row) => (
+            <TableRow key={row.date}>
+              <TableCell className="tnum font-medium">{row.date}</TableCell>
+              <TableCell className="tnum text-right text-sm">
+                {row.trades === null ? "—" : formatNumber(row.trades, 0)}
+              </TableCell>
+              <TableCell className="tnum text-right text-sm">
+                {row.wins ?? 0} / {row.draws ?? 0} / {row.losses ?? 0}
+              </TableCell>
+              <TableCell className="text-right text-sm">
+                <ProfitText value={row.profitAbs} />
+              </TableCell>
+              <TableCell className="tnum text-right text-sm">
+                {row.profitFactor === null ? "—" : formatNumber(row.profitFactor, 2)}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+/** 分时段盈亏 + 按标签/退出原因分析(对齐旧 freqUI 的回测分析页签)。 */
+function ResultAnalysis({ summary }: { summary: LooseRecord | null }) {
+  const enterTags = tagRows(summary, "results_per_enter_tag");
+  const exitReasons = tagRows(summary, "exit_reason_summary");
+  const mixTags = tagRows(summary, "mix_tag_stats");
+  return (
+    <Card className="shadow-xs">
+      <CardHeader>
+        <CardTitle className="text-base">分析</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Tabs defaultValue="day">
+          <TabsList className="flex-wrap">
+            <TabsTrigger value="day">按日</TabsTrigger>
+            <TabsTrigger value="week">按周</TabsTrigger>
+            <TabsTrigger value="month">按月</TabsTrigger>
+            <TabsTrigger value="enter_tag">进场标签</TabsTrigger>
+            <TabsTrigger value="exit_reason">退出原因</TabsTrigger>
+            {mixTags.length > 0 && <TabsTrigger value="mix_tag">混合标签</TabsTrigger>}
+          </TabsList>
+          <TabsContent value="day">
+            <PeriodTable rows={periodRows(summary, "day")} />
+          </TabsContent>
+          <TabsContent value="week">
+            <PeriodTable rows={periodRows(summary, "week")} />
+          </TabsContent>
+          <TabsContent value="month">
+            <PeriodTable rows={periodRows(summary, "month")} />
+          </TabsContent>
+          <TabsContent value="enter_tag">
+            <TagTable rows={enterTags} keyLabel="进场标签" />
+          </TabsContent>
+          <TabsContent value="exit_reason">
+            <TagTable rows={exitReasons} keyLabel="退出原因" />
+          </TabsContent>
+          {mixTags.length > 0 && (
+            <TabsContent value="mix_tag">
+              <TagTable rows={mixTags} keyLabel="混合标签" />
+            </TabsContent>
+          )}
+        </Tabs>
+      </CardContent>
+    </Card>
+  );
 }
 
 /* --------------------------------- 明细内容 --------------------------------- */
@@ -182,6 +358,8 @@ function ResultBody({ backtestResult, file }: { backtestResult: LooseRecord; fil
       )}
 
       <BacktestResultChart backtestResult={backtestResult} />
+
+      <ResultAnalysis summary={summary} />
 
       <Card className="shadow-xs">
         <CardHeader>

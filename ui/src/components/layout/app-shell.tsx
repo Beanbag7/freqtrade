@@ -9,6 +9,7 @@ import {
   LogOut,
   Menu,
   RefreshCw,
+  ScanSearch,
   ScrollText,
   SlidersHorizontal,
   Tags,
@@ -31,6 +32,7 @@ const NAV_ITEMS = [
   { to: "/pairs", label: "交易对", icon: Tags },
   { to: "/control", label: "机器人控制", icon: SlidersHorizontal },
   { to: "/backtest", label: "回测", icon: FlaskConical },
+  { to: "/analysis", label: "策略分析", icon: ScanSearch },
   { to: "/download", label: "数据下载", icon: Download },
   { to: "/logs", label: "日志", icon: ScrollText },
 ] as const;

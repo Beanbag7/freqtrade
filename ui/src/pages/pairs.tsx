@@ -2,6 +2,7 @@ import { useBlacklist, useLocks, useWhitelist } from "@/lib/api/hooks";
 import { PageHeader } from "@/components/shared/blocks";
 import { BlacklistTab } from "@/components/pairs/blacklist-tab";
 import { LocksTab } from "@/components/pairs/locks-tab";
+import { PairlistConfigTab } from "@/components/pairs/pairlist-config-tab";
 import { WhitelistTab } from "@/components/pairs/whitelist-tab";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -37,6 +38,9 @@ export default function PairsPage() {
             锁定
             <CountBadge count={locks?.lock_count} />
           </TabsTrigger>
+          <TabsTrigger value="config" className="gap-1.5 px-3">
+            配置器
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="whitelist">
           <WhitelistTab />
@@ -46,6 +50,9 @@ export default function PairsPage() {
         </TabsContent>
         <TabsContent value="locks">
           <LocksTab />
+        </TabsContent>
+        <TabsContent value="config">
+          <PairlistConfigTab />
         </TabsContent>
       </Tabs>
     </div>

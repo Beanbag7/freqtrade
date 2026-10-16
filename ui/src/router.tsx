@@ -43,6 +43,7 @@ export const router = createBrowserRouter([
       { path: "pairs", element: lazyPage(() => import("@/pages/pairs")) },
       { path: "control", element: lazyPage(() => import("@/pages/control")) },
       { path: "backtest", element: lazyPage(() => import("@/pages/backtest")) },
+      { path: "analysis", element: lazyPage(() => import("@/pages/analysis")) },
       { path: "download", element: lazyPage(() => import("@/pages/download")) },
       { path: "logs", element: lazyPage(() => import("@/pages/logs")) },
     ],

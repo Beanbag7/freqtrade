@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/shared/blocks";
 import { useShowConfig } from "@/lib/api/hooks";
 import { DailyProfitCard } from "@/components/dashboard/daily-profit-card";
+import { CumProfitCard } from "@/components/dashboard/cum-profit-card";
 import { OpenTradesCard } from "@/components/dashboard/open-trades-card";
 import { PairPerformanceCard } from "@/components/dashboard/pair-performance-card";
 import { StatsRow } from "@/components/dashboard/stats-row";
@@ -27,6 +28,8 @@ export default function DashboardPage() {
         </div>
         <DailyProfitCard />
       </div>
+
+      <CumProfitCard />
 
       <PairPerformanceCard />
     </div>

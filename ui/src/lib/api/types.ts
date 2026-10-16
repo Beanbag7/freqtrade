@@ -542,11 +542,60 @@ export interface BgJobStarted {
   job_id: string;
 }
 
+/* ------------------------- Pairlist evaluate ------------------------ */
+
+export interface WhitelistEvaluateResponse {
+  error: string | null;
+  status: string;
+  result?: WhitelistResponse | null;
+}
+
+export interface PairListParamSpec {
+  type: string;
+  default?: unknown;
+  description?: string;
+  help?: string;
+  options?: string[];
+}
+
+/* -------------------------- Analysis tools -------------------------- */
+
+export interface LookaheadAnalysisResult {
+  strategy: string;
+  has_bias: boolean;
+  total_signals: number;
+  biased_entry_signals: number;
+  biased_exit_signals: number;
+  biased_indicators: string[];
+}
+
+export interface LookaheadAnalysisResponse {
+  status: string;
+  running: boolean;
+  status_msg: string;
+  result?: LookaheadAnalysisResult | null;
+}
+
+export interface RecursiveAnalysisResult {
+  strategy: string;
+  startup_candles: number[];
+  strategy_scc: number | null;
+  /** indicator → (startup candle count → variance) */
+  results: Record<string, Record<string, number>>;
+}
+
+export interface RecursiveAnalysisResponse {
+  status: string;
+  running: boolean;
+  status_msg: string;
+  result?: RecursiveAnalysisResult | null;
+}
+
 export interface PairListResponse {
   name: string;
   description: string;
   is_pairlist_generator: boolean;
-  params: Record<string, unknown>;
+  params: Record<string, PairListParamSpec>;
 }
 
 export interface PairListsResponse {

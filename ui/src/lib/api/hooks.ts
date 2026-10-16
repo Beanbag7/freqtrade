@@ -25,14 +25,17 @@ import type {
   Locks,
   LocksPayload,
   Logs,
+  LookaheadAnalysisResponse,
   MarketResponse,
   MixTag,
   OpenTrade,
   PairHistory,
+  PairListsResponse,
   PerformanceEntry,
   Ping,
   Profit,
   ProfitAll,
+  RecursiveAnalysisResponse,
   ResultMsg,
   ShowConfig,
   Stats,
@@ -42,6 +45,7 @@ import type {
   SysInfo,
   TradeResponse,
   Version,
+  WhitelistEvaluateResponse,
   WhitelistResponse,
 } from "@/lib/api/types";
 
@@ -372,6 +376,71 @@ export const useDownloadData = () => {
     },
   });
 };
+
+/* --------------------- Pairlist evaluation (webserver) --------------- */
+
+export const usePairlistsAvailable = (opts?: Opts<PairListsResponse>) =>
+  useQuery({
+    queryKey: ["pairlists-available"],
+    queryFn: () => api<PairListsResponse>("/pairlists/available"),
+    staleTime: Infinity,
+    retry: 1,
+    ...opts,
+  });
+
+export const useEvaluatePairlists = () =>
+  useMutation({
+    mutationFn: (payload: {
+      pairlists: Record<string, unknown>[];
+      blacklist: string[];
+      stake_currency: string;
+    }) => api<BgJobStarted>("/pairlists/evaluate", { method: "POST", body: payload }),
+  });
+
+/** Poll a pairlist evaluation job until it finishes. */
+export const usePairlistEvalResult = (jobId: string | null, opts?: Opts<WhitelistEvaluateResponse>) =>
+  useQuery({
+    queryKey: ["pairlist-eval", jobId ?? ""],
+    queryFn: () => api<WhitelistEvaluateResponse>(`/pairlists/evaluate/${jobId}`),
+    enabled: Boolean(jobId),
+    refetchInterval: (q) => (q.state.data?.status === "success" || q.state.data?.error ? false : 2_000),
+    retry: 1,
+    ...opts,
+  });
+
+/* ------------------- Strategy analysis tools (webserver) ------------- */
+
+export const useStartLookahead = () =>
+  useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      api<BgJobStarted>("/lookahead_analysis", { method: "POST", body: payload }),
+  });
+
+export const useLookaheadResult = (jobId: string | null, opts?: Opts<LookaheadAnalysisResponse>) =>
+  useQuery({
+    queryKey: ["lookahead", jobId ?? ""],
+    queryFn: () => api<LookaheadAnalysisResponse>(`/lookahead_analysis/${jobId}`),
+    enabled: Boolean(jobId),
+    refetchInterval: (q) => (q.state.data?.running === false && q.state.data?.status !== "running" ? false : 2_000),
+    retry: 1,
+    ...opts,
+  });
+
+export const useStartRecursive = () =>
+  useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      api<BgJobStarted>("/recursive_analysis", { method: "POST", body: payload }),
+  });
+
+export const useRecursiveResult = (jobId: string | null, opts?: Opts<RecursiveAnalysisResponse>) =>
+  useQuery({
+    queryKey: ["recursive", jobId ?? ""],
+    queryFn: () => api<RecursiveAnalysisResponse>(`/recursive_analysis/${jobId}`),
+    enabled: Boolean(jobId),
+    refetchInterval: (q) => (q.state.data?.running === false && q.state.data?.status !== "running" ? false : 2_000),
+    retry: 1,
+    ...opts,
+  });
 
 /* ----------------------------- Mutations --------------------------- */
 

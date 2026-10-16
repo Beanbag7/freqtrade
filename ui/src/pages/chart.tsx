@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Check, ChevronsUpDown, RefreshCw, SlidersHorizontal } from "lucide-react";
+import type { KLineData } from "klinecharts";
 import { PageHeader } from "@/components/shared/blocks";
 import { EmptyState, ErrorAlert } from "@/components/shared/states";
 import { Button } from "@/components/ui/button";
@@ -80,6 +81,28 @@ function resolvePlotColor(raw: unknown, fallback: string): string {
   return raw;
 }
 
+/**
+ * Heikin Ashi transform (freqUI chart parity). Timestamps/volume untouched, so
+ * trade markers and signals still align — note they keep real prices while the
+ * candles show smoothed values.
+ */
+function toHeikinAshi(bars: KLineData[]): KLineData[] {
+  const out: KLineData[] = [];
+  for (let i = 0; i < bars.length; i++) {
+    const b = bars[i];
+    const haClose = (b.open + b.high + b.low + b.close) / 4;
+    const haOpen = i === 0 ? (b.open + b.close) / 2 : (out[i - 1].open + out[i - 1].close) / 2;
+    out.push({
+      ...b,
+      open: haOpen,
+      close: haClose,
+      high: Math.max(b.high, haOpen, haClose),
+      low: Math.min(b.low, haOpen, haClose),
+    });
+  }
+  return out;
+}
+
 export default function ChartPage() {
   const { data: config } = useShowConfig();
   const { data: whitelist } = useWhitelist();
@@ -89,6 +112,7 @@ export default function ChartPage() {
   const [pairOpen, setPairOpen] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [showStrategyPlot, setShowStrategyPlot] = useState(true);
+  const [heikinAshi, setHeikinAshi] = useState(false);
   const [indicators, setIndicators] = useState<IndicatorToggles>({
     ma: true,
     ema: false,
@@ -128,6 +152,10 @@ export default function ChartPage() {
   const { data: plotConfigRaw } = usePlotConfig({ retry: 1 });
 
   const { bars, signals } = useMemo(() => mapPairHistory(history), [history]);
+  const displayBars = useMemo(
+    () => (heikinAshi ? toHeikinAshi(bars) : bars),
+    [bars, heikinAshi],
+  );
 
   // Resolve plot_config into theme-colored main/subplot line definitions,
   // keeping only columns actually present in the dataframe response.
@@ -348,6 +376,17 @@ export default function ChartPage() {
           <div className="ml-auto flex items-center gap-3">
             <div className="flex items-center gap-2">
               <Switch
+                id="heikin-ashi"
+                checked={heikinAshi}
+                onCheckedChange={setHeikinAshi}
+                aria-label="平均K线(Heikin Ashi)"
+              />
+              <Label htmlFor="heikin-ashi" className="text-xs text-muted-foreground">
+                HA
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
                 id="auto-refresh"
                 checked={autoRefresh}
                 onCheckedChange={setAutoRefresh}
@@ -446,7 +485,7 @@ export default function ChartPage() {
             <CandleChart
               pair={effectivePair}
               timeframe={effectiveTimeframe}
-              bars={bars}
+              bars={displayBars}
               markers={markers}
               signals={signals}
               indicators={indicators}
