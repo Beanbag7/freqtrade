@@ -1,7 +1,7 @@
 ---
-status: active
+status: accepted
 created: 2026-10-17
-work: ../work/epic-lm-freqtrade-migration.md
+accepted: 2026-10-17
 ---
 # LM→Freqtrade 迁移：双链信号一致性验证
 
@@ -46,8 +46,11 @@ work: ../work/epic-lm-freqtrade-migration.md
 
 ## 最终交付索引
 
+- ITEM-1：B1/P0 CLOSED（Owner Gate 2026-10-17「继续吧」批复；记录于 G5-FINAL-ACCEPTANCE §②与游标历史）
+- ITEM-2：G3 观察窗提前终止收尾（Owner 2026-10-17；1774 评估/零订单/零 error；进程停机＋cron 删除）
 - ITEM-3：`g5_ohlcv_readiness/klines_frozen.json`（571×3，双读 SHA＋P0 交叉）
-- ITEM-4：`G5-DUAL-signal-parity-report.md`（PASS）＋`g5_dual/`（含 compare_result.json；dataset/worker 输出为本地工件）
+- ITEM-4：`G5-DUAL-signal-parity-report.md`（PASS，1002/1002 位级全等）＋`g5_dual/`（含 compare_result.json；dataset/worker 输出为本地工件）
+- ITEM-5：`G5-FINAL-ACCEPTANCE.md`（四条标准全过）＋Git 收尾：`feat/lm-migration-g1-g4`＝rebase ebef5a7e4＋G5 交付 66 文件提交；stable 收口提交；私有远端备份 `Beanbag7/freqtrade-lm-private`（origin/fork 公共仓零发布）
 
 ## 整体验收
 
@@ -61,3 +64,13 @@ work: ../work/epic-lm-freqtrade-migration.md
 - LM 主仓 Owner 侧并行开发造成对账面漂移（已发生一次，import 面未受影响；每轮复核）。
 - G3 观察进程单点（仅运维影响）。
 - 外部治理环（ChatGPT/Codex 复核轮次）可用性与时效不受本仓控制（阻塞 Gate 节奏，不阻塞只读工作）。
+
+## 终局与毕业（2026-10-17 Owner 签收「结束epic」）
+
+**终局记录**：全部五子项完成；FINAL ACCEPTANCE 四条标准全过（`lm_migration/G5-FINAL-ACCEPTANCE.md`）；政策 4 经 Owner 裁定回退为严格 LM 并复验至 1002/1002 位级全等；G3 观察窗提前终止干净收尾；G-1~G-4 本地执行、G-5 按 Owner 选 A 落地为私有仓备份（`Beanbag7/freqtrade-lm-private`，公共远端零发布）。Epic 游标已按终态规程删除（历史在 Git 提交中保留）。
+
+**毕业清单**：
+- 经验 → lessons：✅ `.codestable/lessons/2026-10-17-replay-clock-pinning-for-staleness.md`（回放钉钟，Owner 授权入册）。
+- 结构性决策 → ADR：`.codestable/adr/` 不存在；按收尾规程，未定目标位置前结论留在本 Epic（DEC-1~7 即完整承载）。Owner 如需建立 ADR 体系另行指示。
+- 稳定产品契约 → canonical requirements：`.codestable/requirements/` 未在 attention.md 登记为 canonical 位置；契约口径（共享语言节＋DEC-7）留在本 Epic。
+- Epic 外移交（不属本 Epic）：实盘授权决策与长期收益评估（Owner 另立）；v1 superseded 缓存 4.4GB 删除批准；未来部署期监控项（funding/OI 接线、EMA 步进节奏、fill_missing）见 G5-FINAL-ACCEPTANCE 遗留清单。
