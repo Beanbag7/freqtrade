@@ -2,7 +2,7 @@
 
 ## 状态
 
-- 状态:进行中
+- 状态:DONE
 - 创建:2026-10-17
 - 上游单据:.codestable/work/feat-mist-ink-ui.md(主工程已 DONE,本单接管其"边界"中声明的刻意裁剪项)
 
@@ -67,8 +67,22 @@
 
 11 路由 × 2 实例 = 22 页零崩溃零空白;`npm run build` 全绿。
 
+### 整体级全量审查(origin/develop...stable 78 文件 +12,641 行)→ 处置(92f79e150,浏览器复验)
+
+0 blocking / 6 important / ~20 nit,Important 全处置:
+- **I1** `/health` 时间戳是**秒**,系统状态卡按毫秒渲染 → 1970 年;调用点 ×1000。实测「2026-10-14 10:44 · 2 天前」。
+- **I2** 回测详情「回测时段」读顶层不存在字段恒 `— ~ —`;改读 `metadata[strategy]`(秒)。实测渲染 `2026-10-10 ~ 2026-10-16`。
+- **I3** K 线同 key 增量只推末根会丢中间蜡烛;改为整段差量投喂 + 跳变重置兜底。
+- **I4** 「自动刷新」被 WS new_candle 绕过;开关入全局设置 `chartAutoRefresh`,轮询/WS 双门控。实测关态 45s 零请求、开态 4 次、持久化正确。
+- **I5** 令牌刷新两套实现收敛:ws.ts 复用 client.ts `refreshOnce` 单飞锁。
+- **I6** Docker 链路装旧 freqUI 的发布缺口写入 ui/README(刻意暂留边界)。
+- nit 选取处置:liquidation_warning 补 toast、sonner 锁定 light(卸 next-themes)、死 hook×4/死类型×8/死映射 profit_all、cssVar 单源、黑名单 aria-label、StateBadge 加载态不渲染、force-enter 文案条件化、locks 时区提示、登录 ASCII 精确报错(实测)、force enter/exit 失效键补全、any 豁免收窄行级。
+- 记录不做:指标 effect 依赖 bars.length 的重建开销(正确但浪费,优化需重写 diff 逻辑,风险大于收益);三处交易对搜索/两处策略下拉的组件级去重(行为等价重构,留作 cs-refactor 后续)。
+- 回归:22 页双实例零崩溃;8082 /balance 「Bot is not in the correct state」属设计内降级;`.uiversion` 缺失为已知小缺口。
+- 验证过程教训沉淀 attention.md(秒/毫秒口径、invalidate 不看 interval、`role="switch"` 选择器陷阱)。
+
 ### 终态
 
 - 范围 6 项全部关闭:5 项实现并实证;主题切换经决策不做(规范锁定亮色单主题);钱包历史图终止(无端点,证据:api_trading.py 仅当前 /balance)。
 - 运维事实沉淀至 attention.md。
-- 用户授权收尾:push origin + 收测试实例。
+- 用户授权收尾:push fork + 收测试实例(均已执行)。

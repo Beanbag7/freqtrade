@@ -15,3 +15,5 @@
 - 前端列表过滤组件禁止"先截断后过滤"(曾 `slice(0,200)` 致 OKX 靠后交易对永远搜不到);cmdk 自带过滤,渲染全量即可。
 - `.gitignore` 的 Python 打包规则 `lib/` 曾把 `ui/src/lib/` 整体忽略(已加 `!ui/src/lib/` 例外);新增前端目录树时先 `git check-ignore` 验证。
 - 多机器人跨源:目标机器人须在 `api_server.CORS_origins` 列入本 UI 源并重启,否则浏览器拦截(webserver.py CORS 中间件,默认空)。freqtrade Basic 认证仅支持 ASCII 凭证(后端 `b64decode().decode("ascii")`)。`crypto.randomUUID` 在非安全上下文(http://IP)不可用,前端 id 生成用 `crypto.getRandomValues`。webserver 模式 `/show_config.state` 返回空串(非 "stopped")。`/freqaimodels` 为 webserver 限定端点。日志五元组第二元素是 epoch 毫秒浮点(时区转换须用它,formatted 串是服务器本地时区)。
+- **时间戳单位不统一(2026-10-17 整体审查实证)**:`/health` 的 `bot_start_ts`/`last_process_ts` 是**秒**(rpc.py `int(ts.timestamp())`);`backtest_result.metadata[strategy].backtest_start_ts` 也是**秒**,而 `backtest_result.strategy[strategy]` 里同名字段是**毫秒**,且 `/backtest/history/result` 顶层根本没有这两个字段(只有 metadata/strategy/strategy_comparison 三键)。消费任何新时间戳字段前先核单位与所在层级。
+- React Query `invalidateQueries` 不看 `refetchInterval`:轮询开关若要真正停刷,WS 失效路径必须同受门控(已入 `chartAutoRefresh` 全局设置,ws.ts new_candle 读取)。Radix 页面有多个 Switch 时,`button[role="switch"]` 选择器会命中第一个(曾因此把 Heikin Ashi 当自动刷新开关空转三轮)——浏览器验证一律用 `#id` 精确选择器。
