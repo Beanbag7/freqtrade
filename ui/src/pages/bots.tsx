@@ -174,10 +174,13 @@ function AddBotDialog() {
     e.preventDefault();
     setTesting(true);
     try {
+      const rawUrl = apiUrl.trim();
+      // 无 scheme 的输入(如 127.0.0.1:8081)自动补 http://,避免被 fetch 当相对地址
+      const withScheme = /^https?:\/\//i.test(rawUrl) ? rawUrl : `http://${rawUrl}`;
       const bot: BotDescriptor = {
         id: genId(),
-        name: name.trim() || apiUrl.trim(),
-        apiUrl: apiUrl.trim().replace(/\/+$/, ""),
+        name: name.trim() || rawUrl,
+        apiUrl: withScheme, // store 写入时统一 normalize(剥 userinfo/尾斜杠)
         username: username.trim(),
         password,
       };

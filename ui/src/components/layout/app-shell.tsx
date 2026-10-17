@@ -52,7 +52,7 @@ const NAV_ITEMS = [
   { to: "/bots", label: "多机器人", icon: Bot },
 ] as const;
 
-function StateBadge({ state }: { state?: string }) {
+function StateBadge({ state, runmode }: { state?: string; runmode?: string }) {
   if (state === "running") {
     return (
       <Badge variant="outline" className="gap-1.5 border-success/40 bg-success/10 text-success">
@@ -66,6 +66,23 @@ function StateBadge({ state }: { state?: string }) {
       <Badge variant="outline" className="gap-1.5 border-warning/40 bg-warning/10 text-warning">
         <span className="size-1.5 rounded-full bg-warning" aria-hidden />
         已暂停
+      </Badge>
+    );
+  }
+  // webserver 模式 show_config.state 为空串——不是「已停止」;与多机器人页语义对齐
+  if (!state && runmode === "webserver") {
+    return (
+      <Badge variant="outline" className="gap-1.5 border-info/40 bg-info/10 text-info">
+        <span className="size-1.5 rounded-full bg-info" aria-hidden />
+        网页服务
+      </Badge>
+    );
+  }
+  if (!state) {
+    return (
+      <Badge variant="outline" className="gap-1.5 text-muted-foreground">
+        <span className="size-1.5 rounded-full bg-muted-foreground" aria-hidden />
+        未知
       </Badge>
     );
   }
@@ -163,7 +180,7 @@ function SettingsButton() {
           </Select>
         </div>
         <p className="text-xs text-muted-foreground">
-          影响交易记录、日志、回测历史等时间显示。主题由设计规范锁定为亮色。
+          影响交易记录、日志、回测历史等时间显示;切换会重置当前页面状态。主题由设计规范锁定为亮色。
         </p>
       </PopoverContent>
     </Popover>
@@ -220,7 +237,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="truncate text-control font-semibold">
               {config?.bot_name ?? "freqtrade"}
             </span>
-            <StateBadge state={config?.state} />
+            <StateBadge state={config?.state} runmode={config?.runmode} />
             {config?.dry_run && (
               <Badge
                 variant="outline"

@@ -215,10 +215,11 @@ export default function ChartPage() {
     const rows = customRows.filter((r) => r.column && available.has(r.column));
     const main = rows
       .filter((r) => r.pane === "main")
-      .map((r, i) => ({ column: r.column, color: r.color || plotPalette(i) }));
+      // 行创建时已固定调色,渲染期直接消费(不再按过滤后索引回退分配)
+      .map((r) => ({ column: r.column, color: r.color }));
     const subLines = rows
       .filter((r) => r.pane === "sub")
-      .map((r, i) => ({ column: r.column, color: r.color || plotPalette(i + 2) }));
+      .map((r) => ({ column: r.column, color: r.color }));
     const subs = subLines.length > 0 ? [{ title: "自定义", lines: subLines }] : [];
     if (main.length === 0 && subs.length === 0) return undefined;
     return { main, subs };
@@ -495,7 +496,7 @@ export default function ChartPage() {
                         </Select>
                         <input
                           type="color"
-                          value={row.color || plotPalette(i)}
+                          value={row.color}
                           onChange={(e) =>
                             setCustomRows((prev) =>
                               prev.map((r, j) => (j === i ? { ...r, color: e.target.value } : r)),
@@ -524,16 +525,17 @@ export default function ChartPage() {
                     className="w-full gap-1"
                     disabled={plottableColumns.length === 0}
                     onClick={() =>
-                      setCustomRows((prev) => [
-                        ...prev,
-                        {
-                          column: plottableColumns[0] ?? "",
-                          pane: "sub",
-                          // 添加时即固定调色(而非渲染期按过滤后索引分配),
-                          // 保证色样与实际渲染色一致
-                          color: plotPalette(prev.length),
-                        },
-                      ])
+                      setCustomRows((prev) => {
+                        // 添加时即固定调色(色样=渲染色);取第一个未被占用的调色板槽位,
+                        // 避免删除中间行后按 prev.length 分配撞色
+                        const used = new Set(prev.map((r) => r.color));
+                        let ci = 0;
+                        while (used.has(plotPalette(ci)) && ci < 50) ci++;
+                        return [
+                          ...prev,
+                          { column: plottableColumns[0] ?? "", pane: "sub", color: plotPalette(ci) },
+                        ];
+                      })
                     }
                   >
                     <Plus className="size-3.5" />

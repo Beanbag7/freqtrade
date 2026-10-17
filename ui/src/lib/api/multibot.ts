@@ -29,11 +29,17 @@ export const useBotRegistry = create<BotRegistryState>()(
   persist(
     (set) => ({
       bots: [],
-      addBot: (b) => set((s) => ({ bots: [...s.bots.filter((x) => x.id !== b.id), b] })),
+      // 写入前统一 normalize:剥离 userinfo(防凭据落盘/渲染进表格)、去尾斜杠
+      addBot: (b) =>
+        set((s) => ({
+          bots: [...s.bots.filter((x) => x.id !== b.id), { ...b, apiUrl: normalizeUrl(b.apiUrl) }],
+        })),
       updateBot: (b) => {
         // 凭据可能变化,旧 token 一并作废
         tokenCache.delete(b.id);
-        return set((s) => ({ bots: s.bots.map((x) => (x.id === b.id ? b : x)) }));
+        return set((s) => ({
+          bots: s.bots.map((x) => (x.id === b.id ? { ...b, apiUrl: normalizeUrl(b.apiUrl) } : x)),
+        }));
       },
       removeBot: (id) => {
         tokenCache.delete(id);
@@ -51,11 +57,26 @@ interface TokenPair {
   refreshToken: string;
 }
 
+/** 规范化机器人地址:剥离可能误粘的 userinfo(http://user:pass@host)、去尾斜杠、保留端口与部署路径。 */
+export const normalizeUrl = (apiUrl: string) => {
+  try {
+    const u = new URL(apiUrl);
+    u.username = "";
+    u.password = "";
+    return u.origin + u.pathname.replace(/\/+$/, "");
+  } catch {
+    return apiUrl.replace(/\/+$/, "");
+  }
+};
+
 /** 令牌缓存仅驻留内存(密码已持久化,令牌没必要再落盘)。 */
 const tokenCache = new Map<string, TokenPair>();
 
 /** 登录请求 in-flight 去重:冷启动 4 个端点并发时只登录一次。 */
 const loginInflight = new Map<string, Promise<TokenPair>>();
+
+/** 刷新请求 in-flight 去重:并发 401 只刷新一次。 */
+const refreshInflight = new Map<string, Promise<TokenPair | null>>();
 
 /** 非安全上下文(http://局域网IP)没有 crypto.randomUUID,用 getRandomValues 兜底。 */
 export function genId(): string {
@@ -71,18 +92,6 @@ export class BotApiError extends Error {
     this.status = status;
   }
 }
-
-const normalizeUrl = (apiUrl: string) => {
-  // 剥离可能误粘进地址的 userinfo(http://user:pass@host),避免凭据被持久化/渲染
-  try {
-    const u = new URL(apiUrl);
-    u.username = "";
-    u.password = "";
-    return u.origin + u.pathname.replace(/\/+$/, "");
-  } catch {
-    return apiUrl.replace(/\/+$/, "");
-  }
-};
 
 /** freqtrade Basic 以 ASCII 解码;非 ASCII 凭证在浏览器侧先拦下,给出正确提示。 */
 function assertAsciiCredentials(username: string, password: string) {
@@ -131,18 +140,29 @@ async function botLogin(bot: BotDescriptor): Promise<TokenPair> {
 }
 
 async function botRefresh(bot: BotDescriptor, refreshToken: string): Promise<TokenPair | null> {
+  // 并发 401 时多个调用方拿同一份 refreshToken,按 bot 去重避免重复刷新
+  const inflight = refreshInflight.get(bot.id);
+  if (inflight) return inflight;
+  const p = (async () => {
+    try {
+      const res = await fetch(`${normalizeUrl(bot.apiUrl)}/api/v1/token/refresh`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${refreshToken}` },
+      });
+      if (!res.ok) return null;
+      const data = (await res.json()) as { access_token: string };
+      const tokens = { accessToken: data.access_token, refreshToken };
+      tokenCache.set(bot.id, tokens);
+      return tokens;
+    } catch {
+      return null;
+    }
+  })();
+  refreshInflight.set(bot.id, p);
   try {
-    const res = await fetch(`${normalizeUrl(bot.apiUrl)}/api/v1/token/refresh`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${refreshToken}` },
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { access_token: string };
-    const tokens = { accessToken: data.access_token, refreshToken };
-    tokenCache.set(bot.id, tokens);
-    return tokens;
-  } catch {
-    return null;
+    return await p;
+  } finally {
+    refreshInflight.delete(bot.id);
   }
 }
 
