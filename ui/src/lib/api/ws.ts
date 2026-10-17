@@ -182,8 +182,10 @@ class LiveSocket {
       this.ws = null;
       this.publishDebug();
       if (this.stopped) return;
-      // 1008 = policy violation → token rejected;与 REST 401 共用单飞刷新锁
-      if (event.code === 1008) void refreshOnce();
+      // token 过期时后端在握手阶段 ws.close(1008),但 uvicorn 对握手前 close
+      // 回的是 HTTP 403,浏览器只能看到 1006——所以 1006 与 1008 一并处理:
+      // 单飞刷新令牌再重连(网络本身断开时 tryRefresh 静默 false,无副作用)
+      if (event.code === 1008 || event.code === 1006) void refreshOnce();
       this.scheduleReconnect();
     };
 

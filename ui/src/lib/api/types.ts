@@ -369,6 +369,36 @@ export interface ShowConfig {
   max_entry_position_adjustment: number;
 }
 
+export interface PlotAnnotationBase {
+  color?: string;
+  label?: string;
+  z_level?: number;
+}
+
+/** area/line 注解:二维区间(plot_annotation_type.py 的 _Base2DAnnotationType)。 */
+export interface PlotAnnotation2D extends PlotAnnotationBase {
+  type: "area" | "line";
+  start?: string;
+  end?: string;
+  y_start?: number;
+  y_end?: number;
+  /** line 专属 */
+  width?: number;
+  line_style?: "solid" | "dashed" | "dotted";
+}
+
+/** point 注解:单点坐标(无 start/end,字段是 x/y)。 */
+export interface PlotPointAnnotation extends PlotAnnotationBase {
+  type: "point";
+  x?: string;
+  y?: number;
+  size?: number;
+  shape?: "circle" | "rect" | "roundRect" | "triangle" | "pin" | "arrow" | "none";
+  rotate?: number;
+}
+
+export type PlotAnnotation = PlotAnnotation2D | PlotPointAnnotation;
+
 export interface PairHistory {
   strategy: string;
   pair: string;
@@ -378,7 +408,7 @@ export interface PairHistory {
   all_columns: string[];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any[][];
-  annotations?: { type: string; start: string; end: string; note?: string }[] | null;
+  annotations?: PlotAnnotation[] | null;
   length: number;
   buy_signals: number;
   sell_signals: number;
@@ -387,10 +417,13 @@ export interface PairHistory {
   enter_short_signals: number;
   exit_short_signals: number;
   last_analyzed: string;
+  /** 秒(后端 rpc.py int(ts.timestamp())),消费前 ×1000 */
   last_analyzed_ts: number;
+  /** 毫秒(与 data 行内 __date_ts 同源) */
   data_start_ts: number;
   data_start: string;
   data_stop: string;
+  /** 毫秒 */
   data_stop_ts: number;
 }
 

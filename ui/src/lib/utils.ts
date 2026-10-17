@@ -15,13 +15,13 @@ export function formatProfit(value: number | null | undefined, decimals = 2): st
 
 /** Format a ratio (0.0123) as percent string (1.23%). Input is a ratio, not pct points. */
 export function formatRatioAsPct(value: number | null | undefined, decimals = 2): string {
-  if (value === null || value === undefined || Number.isNaN(value)) return "—";
+  if (value === null || value === undefined || !Number.isFinite(value)) return "—";
   return `${(value * 100).toFixed(decimals)}%`;
 }
 
 /** Format a value that is already expressed in percent points. */
 export function formatPct(value: number | null | undefined, decimals = 2): string {
-  if (value === null || value === undefined || Number.isNaN(value)) return "—";
+  if (value === null || value === undefined || !Number.isFinite(value)) return "—";
   return `${value.toFixed(decimals)}%`;
 }
 
@@ -63,7 +63,7 @@ export function formatDate(ts: number | string | null | undefined): string {
 
 /** Human short duration like "3d 4h" / "5h 12m" / "42m" */
 export function formatDuration(ms: number | null | undefined): string {
-  if (ms === null || ms === undefined || ms < 0) return "—";
+  if (ms === null || ms === undefined || !Number.isFinite(ms) || ms < 0) return "—";
   const mins = Math.floor(ms / 60000);
   if (mins < 60) return `${mins}m`;
   const hours = Math.floor(mins / 60);

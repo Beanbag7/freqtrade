@@ -163,11 +163,24 @@ export function ForceEnterCard() {
     if (stakeamount.trim() !== "" && Number.isFinite(stake) && stake > 0) payload.stakeamount = stake;
     if (isLimit) {
       const pr = Number(price);
-      if (price.trim() !== "" && Number.isFinite(pr) && pr > 0) payload.price = pr;
+      if (price.trim() !== "") {
+        // 价格 0/负数曾静默丢弃 → 限价单落到现价;必须显式报错
+        if (!Number.isFinite(pr) || pr <= 0) {
+          toast.error("限价单的价格必须为正数");
+          return null;
+        }
+        payload.price = pr;
+      }
     }
     if (isFutures) {
       const lev = Number(leverage);
-      if (leverage.trim() !== "" && Number.isFinite(lev) && lev >= 1) payload.leverage = lev;
+      if (leverage.trim() !== "") {
+        if (!Number.isFinite(lev) || lev < 1) {
+          toast.error("杠杆必须 ≥ 1");
+          return null;
+        }
+        payload.leverage = lev;
+      }
     }
     const tag = entryTag.trim();
     if (tag) payload.entry_tag = tag;
@@ -188,6 +201,9 @@ export function ForceEnterCard() {
           ? `投入金额:${confirmPayload.stakeamount}`
           : `投入金额:${config.stake_amount}(未填,按默认投入)`,
         `订单类型:${confirmPayload.ordertype === "limit" ? "限价" : "市价"}`,
+        ...(confirmPayload.ordertype === "limit"
+          ? [`价格:${confirmPayload.price ?? "未填(按当前市价挂单)"}`]
+          : []),
       ].join("\n")
     : "";
 

@@ -381,13 +381,18 @@ export function TradeDetailSheet({
                   confirmLabel="确认平仓"
                   pending={forceExit.isPending}
                   run={(done) => {
-                    const amount = Number(exitAmount);
+                    const trimmed = exitAmount.trim();
+                    const amount = Number(trimmed);
+                    // 非法数量曾静默落到「平全部」——资金操作必须拦下并明示
+                    if (trimmed !== "" && (!Number.isFinite(amount) || amount <= 0)) {
+                      toast.error("平仓数量必须为正数;留空则平掉全部持仓。");
+                      done();
+                      return;
+                    }
                     forceExit.mutate(
                       {
                         tradeid: trade.trade_id,
-                        ...(exitAmount && Number.isFinite(amount) && amount > 0
-                          ? { amount }
-                          : {}),
+                        ...(trimmed !== "" ? { amount } : {}),
                       },
                       {
                         onSuccess: () => finish("已发起强制平仓", done),

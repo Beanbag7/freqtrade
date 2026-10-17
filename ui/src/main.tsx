@@ -5,7 +5,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { router } from "@/router";
+import { initCrossTabSync } from "@/lib/cross-tab";
 import "./index.css";
+
+initCrossTabSync();
 
 const queryClient = new QueryClient({
   defaultOptions: {

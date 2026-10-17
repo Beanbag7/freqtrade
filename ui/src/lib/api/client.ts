@@ -98,13 +98,21 @@ export async function api<T>(path: string, options: RequestOptions = {}, retry =
       const data = await res.json();
       if (typeof data?.detail === "string") detail = data.detail;
       else if (Array.isArray(data?.detail) && data.detail[0]?.msg) detail = data.detail[0].msg;
+      // RPCException 走 502 + {"error": "..."} 体(webserver.py),不解析会把
+      // 真实原因吞成通用文案(如 webserver 模式 /plot_config 无 strategy)
+      else if (typeof data?.error === "string") detail = data.error;
     } catch {
       /* keep default */
     }
     throw new ApiError(res.status, detail);
   }
 
-  return (await res.json()) as T;
+  try {
+    return (await res.json()) as T;
+  } catch {
+    // 200 但响应不是 JSON(网关页/代理错误页等):给统一文案而不是裸 SyntaxError
+    throw new ApiError(res.status, "服务器返回了无法解析的数据。");
+  }
 }
 
 function toBase64(value: string): string {

@@ -200,7 +200,7 @@ export function TradesHistory({
       ) : rows.length === 0 ? (
         <EmptyState
           title="没有交易记录"
-          description={search ? "没有匹配该交易对的记录,请调整筛选条件。" : undefined}
+          description={search ? "本页没有匹配该交易对的记录,可清空筛选或翻页查看。" : undefined}
         />
       ) : (
         <div className="overflow-x-auto">

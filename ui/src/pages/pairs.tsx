@@ -28,11 +28,11 @@ export default function PairsPage() {
         <TabsList>
           <TabsTrigger value="whitelist" className="gap-1.5 px-3">
             白名单
-            <CountBadge count={whitelist?.whitelist.length} />
+            <CountBadge count={whitelist?.whitelist?.length} />
           </TabsTrigger>
           <TabsTrigger value="blacklist" className="gap-1.5 px-3">
             黑名单
-            <CountBadge count={blacklist?.blacklist_expanded.length} />
+            <CountBadge count={blacklist?.blacklist_expanded?.length} />
           </TabsTrigger>
           <TabsTrigger value="locks" className="gap-1.5 px-3">
             锁定

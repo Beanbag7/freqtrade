@@ -25,6 +25,25 @@ interface BotRegistryState {
   removeBot: (id: string) => void;
 }
 
+/**
+ * 规范化机器人地址:剥离可能误粘的 userinfo(http://user:pass@host)、去尾斜杠、保留端口与部署路径。
+ * 必须定义在 store 之前——persist 的 merge 在 create() 时同步执行(hydration),
+ * 引用文件后面初始化的 const 会踩 TDZ,异常还会被 persist 静默吞掉。
+ */
+export const normalizeUrl = (apiUrl: string) => {
+  try {
+    const u = new URL(apiUrl);
+    u.username = "";
+    u.password = "";
+    return u.origin + u.pathname.replace(/\/+$/, "");
+  } catch {
+    return apiUrl.replace(/\/+$/, "");
+  }
+};
+
+/** hydration 时清洗过脏记录的标记:merge 只清内存,create() 返回后据此回写 storage。 */
+let cleanedOnHydrate = false;
+
 export const useBotRegistry = create<BotRegistryState>()(
   persist(
     (set) => ({
@@ -46,9 +65,32 @@ export const useBotRegistry = create<BotRegistryState>()(
         return set((s) => ({ bots: s.bots.filter((x) => x.id !== id) }));
       },
     }),
-    { name: "freqtrade-ui-bots" },
+    {
+      name: "freqtrade-ui-bots",
+      // rehydrate 时也过一遍 normalize:写入路径的净化只覆盖新记录,升级前
+      // 落盘的存量记录(rehydrate 不经过 addBot)在此一并清洗,防凭据复现
+      merge: (persistedState, currentState) => {
+        const raw = (persistedState as Partial<BotRegistryState>) ?? {};
+        const rawBots = Array.isArray(raw.bots) ? raw.bots : [];
+        const cleaned = rawBots.map((b) => ({ ...b, apiUrl: normalizeUrl(b.apiUrl) }));
+        if (cleaned.some((b, i) => b.apiUrl !== rawBots[i].apiUrl)) cleanedOnHydrate = true;
+        return { ...currentState, ...raw, bots: cleaned };
+      },
+      // hydration 异常默认被 persist 静默吞掉(上游只在无 migrate 的版本不匹配时打日志),
+      // 显式记录,否则 store 静默为空无从排查
+      onRehydrateStorage: () => (_state, error) => {
+        if (error) console.error("freqtrade-ui-bots 状态恢复失败:", error);
+      },
+    },
   ),
 );
+
+// 存量清洗回写:merge 只改内存,这里触发一次落盘(仅在真的清过脏记录时)。
+// 依赖默认 localStorage 的同步 hydration:create() 返回时 merge 已执行完毕。
+if (cleanedOnHydrate) {
+  cleanedOnHydrate = false;
+  useBotRegistry.setState({ bots: [...useBotRegistry.getState().bots] });
+}
 
 /* ------------------------- 跨源客户端 ------------------------- */
 
@@ -56,18 +98,6 @@ interface TokenPair {
   accessToken: string;
   refreshToken: string;
 }
-
-/** 规范化机器人地址:剥离可能误粘的 userinfo(http://user:pass@host)、去尾斜杠、保留端口与部署路径。 */
-export const normalizeUrl = (apiUrl: string) => {
-  try {
-    const u = new URL(apiUrl);
-    u.username = "";
-    u.password = "";
-    return u.origin + u.pathname.replace(/\/+$/, "");
-  } catch {
-    return apiUrl.replace(/\/+$/, "");
-  }
-};
 
 /** 令牌缓存仅驻留内存(密码已持久化,令牌没必要再落盘)。 */
 const tokenCache = new Map<string, TokenPair>();

@@ -393,7 +393,7 @@ function ResultBody({ backtestResult, file }: { backtestResult: LooseRecord; fil
         </Card>
       )}
 
-      <BacktestResultChart backtestResult={backtestResult} />
+      <BacktestResultChart key={file} backtestResult={backtestResult} />
 
       <ResultAnalysis stats={strategyDetail} />
 

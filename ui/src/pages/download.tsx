@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Check, ChevronsUpDown, Download, ListPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { validateTimerange } from "@/lib/validation";
 import {
   useBackgroundTasks,
   useDownloadData,
@@ -107,11 +108,12 @@ export default function DownloadPage() {
   };
 
   const daysNum = Number(days);
-  const timerangeValid = /^\d{8}-\d{8}$/.test(timerange.trim());
+  const timerangeError = validateTimerange(timerange);
+  const timerangeValid = timerange.trim() !== "" && timerangeError === null;
   const canSubmit =
     pairs.length > 0 &&
     effectiveTimeframes.length > 0 &&
-    (rangeMode === "days" ? Number.isFinite(daysNum) && daysNum > 0 : timerangeValid) &&
+    (rangeMode === "days" ? Number.isInteger(daysNum) && daysNum > 0 : timerangeValid) &&
     !download.isPending;
 
   const submit = () => {
@@ -273,6 +275,7 @@ export default function DownloadPage() {
                   <Input
                     type="number"
                     min={1}
+                    step={1}
                     value={days}
                     onChange={(e) => setDays(e.target.value)}
                     className="w-28 tnum"
@@ -289,8 +292,8 @@ export default function DownloadPage() {
                     className="w-52 tnum"
                     aria-label="起止日期"
                   />
-                  <p className={cn("text-xs", timerange && !timerangeValid ? "text-destructive" : "text-muted-foreground")}>
-                    格式 YYYYMMDD-YYYYMMDD
+                  <p className={cn("text-xs", timerange && timerangeError ? "text-destructive" : "text-muted-foreground")}>
+                    {timerange && timerangeError ? timerangeError : "格式 YYYYMMDD-YYYYMMDD"}
                   </p>
                 </div>
               )}

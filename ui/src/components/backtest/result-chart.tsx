@@ -181,7 +181,8 @@ export function BacktestResultChart({ backtestResult }: { backtestResult: LooseR
         <p className="mt-3 text-xs text-muted-foreground">
           策略 {strategyName} · 周期 {timeframe} · 时段{" "}
           <span className="tnum">{timerange}</span> · 共{" "}
-          <span className="tnum">{markers.length / 2 || 0}</span> 笔交易标记
+          {/* 每笔来回两条标记;首尾越界时可能只有单侧,取整避免“3.5 笔” */}
+          <span className="tnum">{Math.round(markers.length / 2)}</span> 笔交易标记
         </p>
       </CardContent>
     </Card>

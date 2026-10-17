@@ -3,6 +3,7 @@ import { ChevronDown, LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useFreqAIModels, useStartBacktest, useStrategies } from "@/lib/api/hooks";
 import { cn } from "@/lib/utils";
+import { validateTimerange } from "@/lib/validation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -41,6 +42,13 @@ export function NewBacktestForm() {
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
+
+    const rangeError = validateTimerange(timerange);
+    if (rangeError) {
+      // 后端对非法 timerange 是在后台任务里失败(提交先回 200),前端先拦
+      toast.error(rangeError);
+      return;
+    }
 
     const payload: Record<string, unknown> = {
       strategy: strategy.trim(),

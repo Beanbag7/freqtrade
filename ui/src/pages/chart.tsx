@@ -141,7 +141,7 @@ export default function ChartPage() {
   // Pair candidates: whitelist first, then pairs with open trades.
   const pairOptions = useMemo(() => {
     const list = new Set<string>();
-    whitelist?.whitelist.forEach((p) => list.add(p));
+    (whitelist?.whitelist ?? []).forEach((p) => list.add(p));
     openTrades?.forEach((t) => list.add(t.pair));
     return [...list];
   }, [whitelist, openTrades]);
@@ -157,6 +157,9 @@ export default function ChartPage() {
     isFetching,
   } = usePairCandles(effectivePair, effectiveTimeframe, 500, {
     refetchInterval: autoRefresh ? 30_000 : false,
+    // 第三条自动刷新路径:断网恢复的 refetchOnReconnect 默认 true,
+    // 与轮询/WS 一样受开关门控(否则开关名义上关着仍会补拉一次)
+    refetchOnReconnect: autoRefresh,
   });
 
   // Recent closed trades for entry/exit markers.
