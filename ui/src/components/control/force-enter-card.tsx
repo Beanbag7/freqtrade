@@ -160,7 +160,14 @@ export function ForceEnterCard() {
     }
     const payload: ForceEnterPayload = { pair: p, side, ordertype };
     const stake = Number(stakeamount);
-    if (stakeamount.trim() !== "" && Number.isFinite(stake) && stake > 0) payload.stakeamount = stake;
+    if (stakeamount.trim() !== "") {
+      // 0/负数/非数值曾静默落到默认投入;与价格/杠杆保持一致显式报错
+      if (!Number.isFinite(stake) || stake <= 0) {
+        toast.error("投入金额必须为正数(留空则按默认投入)");
+        return null;
+      }
+      payload.stakeamount = stake;
+    }
     if (isLimit) {
       const pr = Number(price);
       if (price.trim() !== "") {

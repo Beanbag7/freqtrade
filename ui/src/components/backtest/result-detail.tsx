@@ -276,7 +276,15 @@ function ResultAnalysis({ stats }: { stats: LooseRecord | null }) {
 
 /* --------------------------------- 明细内容 --------------------------------- */
 
-function ResultBody({ backtestResult, file }: { backtestResult: LooseRecord; file: string }) {
+function ResultBody({
+  backtestResult,
+  file,
+  strategy,
+}: {
+  backtestResult: LooseRecord;
+  file: string;
+  strategy: string;
+}) {
   const summary = extractSummary(backtestResult);
   const strategyDetail = extractStrategyDetail(backtestResult);
   const comparison = looseArr(backtestResult, "strategy_comparison");
@@ -393,7 +401,8 @@ function ResultBody({ backtestResult, file }: { backtestResult: LooseRecord; fil
         </Card>
       )}
 
-      <BacktestResultChart key={file} backtestResult={backtestResult} />
+      {/* 身份须含策略:一个结果文件可含多策略,只按 file 做 key 时切换策略不重挂载,pair 等状态残留 */}
+      <BacktestResultChart key={`${file}:${strategy}`} backtestResult={backtestResult} />
 
       <ResultAnalysis stats={strategyDetail} />
 
@@ -492,5 +501,5 @@ function ResultFileDetail({ file, strategy }: { file: string; strategy: string }
     return <EmptyState title="此回测没有可用的结果数据" />;
   }
 
-  return <ResultBody backtestResult={backtestResult} file={file} />;
+  return <ResultBody backtestResult={backtestResult} file={file} strategy={strategy} />;
 }

@@ -91,9 +91,18 @@
 - 记录不做:cmdk Enter 阻断隐式提交(库固有)、白名单重排隐式换对(UX 决策)、locks DST 双时区(已注记固有语义)。
 - 回归:22 页双实例零崩溃。新沉淀事实:`/trades` 只含已平仓(is_open=False),持仓在 /status;persist merge 静默吞错教训;`/ui_version` 挂根路径。
 
+### 修复后复审(敌意审 1be0257c4)→ 处置(未提交时即修,浏览器复验)
+
+0 Blocking / 3 Important / 若干 Nit,全部处置:
+- **I1** validation.ts 格式集与后端错配(双向):误杀 `yyyymmddThhmm(ss)` 与 epoch(此前表单无校验,属新引入回归);且错误放行空格+冒号形式。重写为与 `_TIMERANGE_FORMATS` 逐条对齐(含混用、单侧空、`start > stop > 0` 边角语义)。实测差分:带交易对后 T/epoch/纯日期可提交,空格冒号/0.5 天禁用;回测表单 T 格式端到端「回测已开始」。
+- **I2** 强平缺上界:数量超持仓时后端整仓平掉(同类"静默改写意图")→ 拒绝并明示,输入框补 max。实测 2× 持仓被拦、持仓未动。
+- **I3** `key={file}` 身份不完整(一个结果文件可含多策略)→ 改 `file:strategy` 复合身份 + ResultBody 透传。可区分实验:B 复查=自己的初值,非 A 残留值。
+- Nit 处置:存量清洗回写改 `onRehydrateStorage`+queueMicrotask(覆盖 storage 事件路径且规避 TDZ);merge 垃圾条目兜底(单条脏数据不再整窝清空,实测);cross-tab 补 `clear()`(key=null)分支;tryRefresh 仅 401/403 注销(5xx 误注销)且按会话丢弃在途响应;投入金额守卫与价格/杠杆一致(实测 0 被拦);vite closeBundle mkdirSync;白/黑名单页与下载页 `?./?? []` 补防御;attention 错字。
+- 回归:新构建 8081×10 + 8082×8 页扫描零崩溃;脏记录清洗/干净记录恢复在新构建复验通过。
+
 ### 终态
 
 - 范围 6 项全部关闭:5 项实现并实证;主题切换经决策不做(规范锁定亮色单主题);钱包历史图终止(无端点,证据:api_trading.py 仅当前 /balance)。
-- 二轮独立审查(2026-10-17)发现并修复 1 Blocking + 10 Important + 4 nit,全部浏览器实证。
+- 二轮独立审查(2026-10-17)发现并修复 1 Blocking + 10 Important + 4 nit;修复批次又经一轮敌意复审,处置 3 Important + 若干 Nit,全部浏览器实证。
 - 运维事实沉淀至 attention.md。
 - 用户授权收尾:push fork + 收测试实例(均已执行)。

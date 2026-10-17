@@ -102,11 +102,11 @@ export function BlacklistTab() {
         )}
         {isError && <ErrorAlert error={error} onRetry={() => refetch()} />}
 
-        {data && data.blacklist_expanded.length > 0 && (
+        {data && data.blacklist_expanded?.length > 0 && (
           <>
             <p className="text-xs text-muted-foreground">
-              原始规则:{data.blacklist.length > 0 ? data.blacklist.join(" / ") : "—"}
-              {data.method.length > 0 && ` · 来源:${data.method.join(" / ")}`}
+              原始规则:{data.blacklist?.length > 0 ? data.blacklist.join(" / ") : "—"}
+              {data.method?.length > 0 && ` · 来源:${data.method.join(" / ")}`}
             </p>
             <div className="rounded-lg border">
               <Table>
@@ -117,7 +117,7 @@ export function BlacklistTab() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.blacklist_expanded.map((pair) => (
+                  {(data.blacklist_expanded ?? []).map((pair) => (
                     <TableRow key={pair}>
                       <TableCell>{pair}</TableCell>
                       <TableCell>
@@ -158,7 +158,7 @@ export function BlacklistTab() {
             </div>
           </>
         )}
-        {data && data.blacklist_expanded.length === 0 && (
+        {data && data.blacklist_expanded?.length === 0 && (
           <EmptyState
             title="黑名单为空"
             description="当前没有任何黑名单规则,所有交易对都可能在白名单中出现。"

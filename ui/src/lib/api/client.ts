@@ -23,10 +23,19 @@ async function tryRefresh(): Promise<boolean> {
       headers: { Authorization: `Bearer ${refreshToken}` },
     });
     if (!res.ok) {
-      logout();
+      // 401/403 = 刷新令牌确实被拒 → 注销;5xx/网关故障属暂时性,不注销。
+      // 且只在本会话仍有效时注销,避免在途刷新误伤已重新登录的会话。
+      if (
+        (res.status === 401 || res.status === 403) &&
+        useAuthStore.getState().refreshToken === refreshToken
+      ) {
+        logout();
+      }
       return false;
     }
     const data = (await res.json()) as { access_token: string };
+    // 在途期间若已注销或换了会话(logout/重新登录/跨标签同步),丢弃过期响应
+    if (useAuthStore.getState().refreshToken !== refreshToken) return false;
     setAccessToken(data.access_token);
     return true;
   } catch {

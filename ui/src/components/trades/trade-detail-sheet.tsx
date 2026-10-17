@@ -389,6 +389,13 @@ export function TradeDetailSheet({
                       done();
                       return;
                     }
+                    // 超过持仓数量后端会整仓平掉(amount < trade.amount 才部分平),
+                    // 同样是静默改写意图,显式拒绝
+                    if (trimmed !== "" && amount > trade.amount) {
+                      toast.error(`平仓数量不能超过当前持仓 ${trade.amount};留空则平掉全部持仓。`);
+                      done();
+                      return;
+                    }
                     forceExit.mutate(
                       {
                         tradeid: trade.trade_id,
@@ -412,6 +419,7 @@ export function TradeDetailSheet({
                       id="exit-amount"
                       type="number"
                       min={0}
+                      max={trade.amount}
                       step="any"
                       value={exitAmount}
                       onChange={(e) => setExitAmount(e.target.value)}

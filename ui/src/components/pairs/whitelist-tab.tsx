@@ -21,14 +21,14 @@ export function WhitelistTab() {
           </div>
         )}
         {isError && <ErrorAlert error={error} onRetry={() => refetch()} />}
-        {data && data.whitelist.length === 0 && <EmptyState title="白名单为空" />}
-        {data && data.whitelist.length > 0 && (
+        {data && data.whitelist?.length === 0 && <EmptyState title="白名单为空" />}
+        {data && data.whitelist?.length > 0 && (
           <>
             <p className="text-xs text-muted-foreground">
-              来源:{data.method.length > 0 ? data.method.join(" / ") : "—"}
+              来源:{data.method?.length > 0 ? data.method.join(" / ") : "—"}
             </p>
             <div className="flex flex-wrap gap-2">
-              {data.whitelist.map((pair) => (
+              {(data.whitelist ?? []).map((pair) => (
                 <Badge key={pair} variant="outline" className="text-sm">
                   {pair}
                 </Badge>

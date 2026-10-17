@@ -162,10 +162,10 @@ export default function DownloadPage() {
                   size="sm"
                   className="h-7 gap-1 text-xs"
                   onClick={() => setPairs(whitelist?.whitelist ?? [])}
-                  disabled={!whitelist?.whitelist.length}
+                  disabled={!(whitelist?.whitelist ?? []).length}
                 >
                   <ListPlus className="size-3.5" aria-hidden />
-                  使用白名单 ({whitelist?.whitelist.length ?? 0})
+                  使用白名单 ({(whitelist?.whitelist ?? []).length})
                 </Button>
               </div>
               <div className="flex min-h-10 flex-wrap items-center gap-1.5 rounded-md border bg-card p-2">
@@ -293,7 +293,7 @@ export default function DownloadPage() {
                     aria-label="起止日期"
                   />
                   <p className={cn("text-xs", timerange && timerangeError ? "text-destructive" : "text-muted-foreground")}>
-                    {timerange && timerangeError ? timerangeError : "格式 YYYYMMDD-YYYYMMDD"}
+                    {timerange && timerangeError ? timerangeError : "格式 20250901-20251001(支持 T 时间 / epoch)"}
                   </p>
                 </div>
               )}

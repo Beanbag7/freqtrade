@@ -1,5 +1,5 @@
 import path from "node:path";
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
@@ -21,7 +21,10 @@ export default defineConfig({
         const pkg = JSON.parse(readFileSync(path.join(__dirname, "package.json"), "utf-8")) as {
           version: string;
         };
-        writeFileSync(path.resolve(__dirname, OUT_DIR, ".uiversion"), `mist-ink-${pkg.version}`);
+        const dir = path.resolve(__dirname, OUT_DIR);
+        // 目录可能不存在(--outDir 覆盖或首次构建),先建再写,防 ENOENT
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(path.join(dir, ".uiversion"), `mist-ink-${pkg.version}`);
       },
     },
   ],

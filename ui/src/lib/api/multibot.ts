@@ -68,29 +68,38 @@ export const useBotRegistry = create<BotRegistryState>()(
     {
       name: "freqtrade-ui-bots",
       // rehydrate 时也过一遍 normalize:写入路径的净化只覆盖新记录,升级前
-      // 落盘的存量记录(rehydrate 不经过 addBot)在此一并清洗,防凭据复现
+      // 落盘的存量记录(rehydrate 不经过 addBot)在此一并清洗,防凭据复现。
+      // 对损坏条目(非对象/缺 apiUrl)同时兜底,避免单条脏数据让整个 hydration 失败。
       merge: (persistedState, currentState) => {
         const raw = (persistedState as Partial<BotRegistryState>) ?? {};
-        const rawBots = Array.isArray(raw.bots) ? raw.bots : [];
-        const cleaned = rawBots.map((b) => ({ ...b, apiUrl: normalizeUrl(b.apiUrl) }));
-        if (cleaned.some((b, i) => b.apiUrl !== rawBots[i].apiUrl)) cleanedOnHydrate = true;
+        const rawBots = Array.isArray(raw.bots) ? (raw.bots as unknown[]) : [];
+        const cleaned = rawBots
+          .filter((b): b is BotDescriptor => !!b && typeof b === "object")
+          .map((b) => ({
+            ...b,
+            apiUrl: normalizeUrl(typeof b.apiUrl === "string" ? b.apiUrl : ""),
+          }));
+        if (JSON.stringify(rawBots) !== JSON.stringify(cleaned)) cleanedOnHydrate = true;
         return { ...currentState, ...raw, bots: cleaned };
       },
       // hydration 异常默认被 persist 静默吞掉(上游只在无 migrate 的版本不匹配时打日志),
       // 显式记录,否则 store 静默为空无从排查
       onRehydrateStorage: () => (_state, error) => {
-        if (error) console.error("freqtrade-ui-bots 状态恢复失败:", error);
+        if (error) {
+          console.error("freqtrade-ui-bots 状态恢复失败:", error);
+          return;
+        }
+        // 存量清洗回写:merge 只改内存,清过脏记录时触发一次落盘(含 storage 事件
+        // 路径)。不能同步调用——初始 hydration 在 create() 内执行,此处引用
+        // useBotRegistry 会踩 TDZ;queueMicrotask 在模块求值完成后运行,安全且幂等。
+        if (cleanedOnHydrate) {
+          cleanedOnHydrate = false;
+          queueMicrotask(() => useBotRegistry.setState({ bots: [...useBotRegistry.getState().bots] }));
+        }
       },
     },
   ),
 );
-
-// 存量清洗回写:merge 只改内存,这里触发一次落盘(仅在真的清过脏记录时)。
-// 依赖默认 localStorage 的同步 hydration:create() 返回时 merge 已执行完毕。
-if (cleanedOnHydrate) {
-  cleanedOnHydrate = false;
-  useBotRegistry.setState({ bots: [...useBotRegistry.getState().bots] });
-}
 
 /* ------------------------- 跨源客户端 ------------------------- */
 

@@ -17,6 +17,11 @@ const rehydrateByKey: Record<string, () => void> = {
 
 export function initCrossTabSync() {
   window.addEventListener("storage", (e) => {
-    if (e.key && rehydrateByKey[e.key]) rehydrateByKey[e.key]();
+    // localStorage.clear() 触发的 storage 事件 key 为 null → 三个 store 一律收敛
+    if (e.key === null) {
+      Object.values(rehydrateByKey).forEach((rehydrate) => rehydrate());
+      return;
+    }
+    if (rehydrateByKey[e.key]) rehydrateByKey[e.key]();
   });
 }
