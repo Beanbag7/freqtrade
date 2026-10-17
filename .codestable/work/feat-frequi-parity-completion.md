@@ -81,8 +81,19 @@
 - 回归:22 页双实例零崩溃;8082 /balance 「Bot is not in the correct state」属设计内降级;`.uiversion` 缺失为已知小缺口。
 - 验证过程教训沉淀 attention.md(秒/毫秒口径、invalidate 不看 interval、`role="switch"` 选择器陷阱)。
 
+### 二轮独立审查(敌意审修复提交 + 行为状态机 + 契约全量 64 调用点)→ 处置(1be0257c4,浏览器复验)
+
+三路并行互不重叠审查,总账:契约 0B/0I/4N(64 调用点全部一致);敌意审 5/7 项干净、2 尾巴;行为审查 0B/6I/8N。
+
+- **Blocking(自查复现)**:zustand persist 的 `merge` 在 `create()` 时同步执行,调用文件后部 `const normalizeUrl` 踩 TDZ → hydration 抛 ReferenceError 被 persist 静默吞掉 → 机器人注册表**刷新即空**(写入路径不经过 merge 所以添加时正常,auth/settings 无 merge 所以正常———— 单点特征强)。修复:normalizeUrl 真正上移至 store 前 + onRehydrateStorage 错误日志。实测:添加→刷新→恢复;种子化复现修复前必现。
+- **重要修复**:①跨标签页 store 互覆写 → cross-tab.ts storage 事件 rehydrate(实测 p1 增删 bot p2 秒级跟随、设置同步);②存量凭据清洗写回(种入 userinfo 记录→刷新→storage+渲染双清);③强平数量 0/负数曾静默全平 → 校验拒绝(实测持仓保留);④限价开仓价格 0 静默丢弃 → 拒绝 + 弹窗补价格行(三种输入实测);⑤回测复盘 pair 残留 → `key={file}` 重挂载(实测 A 切对后 B 重置);⑥refetchOnReconnect 第三条缝同受门控;⑦WS 1008 在 uvicorn 握手前 close 变 1006 → 1006/1008 一并单飞刷新;⑧timerange 非法日期/倒序曾后台任务内失败(提交先 200 假成功)→ lib/validation.ts 前置校验,下载页+回测表单接入(实测三类输入);⑨client.ts 补 502 `{error}` 体与 200 非 JSON;⑩PairHistory.annotations 按后端联合类型修正 + 秒/毫秒单位注释;⑪构建写 installed/.uiversion(`mist-ink-` 前缀)关闭 /ui_version 缺口(两实例实测)。
+- **nit 处置**:formatDuration/formatPct Infinity 守卫、whitelist/blacklist 形状防御、复盘标记取整、交易搜索空态改「本页」口径。
+- 记录不做:cmdk Enter 阻断隐式提交(库固有)、白名单重排隐式换对(UX 决策)、locks DST 双时区(已注记固有语义)。
+- 回归:22 页双实例零崩溃。新沉淀事实:`/trades` 只含已平仓(is_open=False),持仓在 /status;persist merge 静默吞错教训;`/ui_version` 挂根路径。
+
 ### 终态
 
 - 范围 6 项全部关闭:5 项实现并实证;主题切换经决策不做(规范锁定亮色单主题);钱包历史图终止(无端点,证据:api_trading.py 仅当前 /balance)。
+- 二轮独立审查(2026-10-17)发现并修复 1 Blocking + 10 Important + 4 nit,全部浏览器实证。
 - 运维事实沉淀至 attention.md。
 - 用户授权收尾:push fork + 收测试实例(均已执行)。
