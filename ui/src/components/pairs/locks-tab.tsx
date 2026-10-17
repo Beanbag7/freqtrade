@@ -202,6 +202,8 @@ export function LocksTab() {
                 value={until}
                 onChange={(e) => setUntil(e.target.value)}
               />
+              {/* datetime-local 只能按浏览器本地时区录入,与列表的显示时区不同源,明示避免误读 */}
+              <p className="text-xs text-muted-foreground">按浏览器本地时区录入;列表按设置时区显示</p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="lock-reason">原因</Label>

@@ -51,6 +51,13 @@ npm run build      # tsc 类型检查 + vite 构建
 构建产物直接输出到 `../freqtrade/rpc/api_server/ui/installed/`,
 随后 `freqtrade trade` / `freqtrade webserver` 会直接服务新界面,无需再执行 `freqtrade install-ui`。
 
+> **已知发布链路缺口(Docker)**:仓库根目录 `Dockerfile` 仍执行 `freqtrade install-ui`,
+> 该命令会从 GitHub 下载旧版 Vue freqUI 并清空 `installed/`(`deploy_ui.py` 的
+> `clean_ui_subdir`)——即 Docker 镜像内跑的是旧 UI。在本仓库的 Docker 流水线改为
+> 「Node 多阶段构建本目录 + 拷贝产物」之前,Docker 部署需手动 `npm run build` 后将
+> `installed/` 挂载/拷入容器,或进入容器后跳过 install-ui。此为刻意暂留的边界
+> (不改上游发布流水线),证据与决策见 `.codestable/work/feat-frequi-parity-completion.md`。
+
 ## 设计约束(摘要)
 
 - 颜色与组件变体集中在 `src/index.css` 语义令牌管理,页面中不写死 hex 色值。

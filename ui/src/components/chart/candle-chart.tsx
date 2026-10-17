@@ -7,6 +7,7 @@ import {
   type TradeMarkerKind,
 } from "@/lib/chart/overlays";
 import { FT_LINE_INDICATOR, registerColumnLineIndicator } from "@/lib/chart/indicators";
+import { cssVar } from "@/lib/chart/pair-history";
 
 export interface ChartMarker {
   timestamp: number;
@@ -52,12 +53,6 @@ export interface StrategyPlot {
 
 const MARKER_GROUP = "ft-trade-markers";
 const SIGNAL_GROUP = "ft-signal-markers";
-
-function cssVar(name: string, fallback: string): string {
-  if (typeof window === "undefined") return fallback;
-  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  return v || fallback;
-}
 
 function chartStyles() {
   const up = cssVar("--chart-up", "#245b47");
@@ -276,6 +271,7 @@ export function CandleChart({
 
   // Data updates: full reset on pair/tf/epoch change; incremental otherwise.
   const prevKeyRef = useRef("");
+  const prevLastTsRef = useRef<number | null>(null);
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart || bars.length === 0) return;
@@ -283,11 +279,22 @@ export function CandleChart({
     if (prevKeyRef.current !== key) {
       prevKeyRef.current = key;
       chart.resetData();
+      prevLastTsRef.current = bars[bars.length - 1]?.timestamp ?? null;
       return;
     }
-    // Same dataset family: push incremental updates without touching scroll.
+    // 同数据集增量:从上一根已知 K 线起整段差量投喂(更新末根 + 补齐中间新线),
+    // 不能只推最后一根——轮询间隔内产生 ≥2 根新线时会丢中间蜡烛
     const sub = subscribeRef.current;
-    if (sub) sub(bars[bars.length - 1]);
+    const prevTs = prevLastTsRef.current;
+    const startIdx = prevTs === null ? -1 : bars.findIndex((b) => b.timestamp === prevTs);
+    if (!sub || startIdx === -1) {
+      // 数据跳变(找不到上次末根):全量重置兜底
+      chart.resetData();
+      prevLastTsRef.current = bars[bars.length - 1]?.timestamp ?? null;
+      return;
+    }
+    for (const bar of bars.slice(startIdx)) sub(bar);
+    prevLastTsRef.current = bars[bars.length - 1]?.timestamp ?? null;
   }, [bars, pair, timeframe, dataEpoch]);
 
   // Trade + signal markers.

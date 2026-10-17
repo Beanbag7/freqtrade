@@ -34,8 +34,8 @@ async function tryRefresh(): Promise<boolean> {
   }
 }
 
-/** Single-flight refresh so concurrent 401s only refresh once. */
-function refreshOnce(): Promise<boolean> {
+/** Single-flight refresh so concurrent 401s only refresh once. WS 1008 路径也复用此锁。 */
+export function refreshOnce(): Promise<boolean> {
   if (!refreshPromise) {
     refreshPromise = tryRefresh().finally(() => {
       refreshPromise = null;
@@ -114,8 +114,21 @@ function toBase64(value: string): string {
   return btoa(binary);
 }
 
+/**
+ * freqtrade 后端按 ASCII 解码 HTTP Basic(api_auth.py),非 ASCII 凭证在服务端
+ * 必然解码失败——提前拦下给出精确提示,而不是落一个泛泛的「用户名或密码错误」。
+ * 与 multibot.ts 的 assertAsciiCredentials 同一约定。
+ */
+function assertAsciiCredentials(username: string, password: string): void {
+  // eslint-disable-next-line no-control-regex
+  if (!/^[\x00-\x7F]*$/.test(username) || !/^[\x00-\x7F]*$/.test(password)) {
+    throw new ApiError(0, "freqtrade 的 HTTP Basic 认证仅支持 ASCII 用户名/密码,请改用 ASCII 凭证。");
+  }
+}
+
 /** Login against POST /api/v1/token/login (HTTP Basic credentials). */
 export async function login(username: string, password: string): Promise<void> {
+  assertAsciiCredentials(username, password);
   const res = await fetch(`${BASE}/token/login`, {
     method: "POST",
     headers: { Authorization: `Basic ${toBase64(`${username}:${password}`)}` },

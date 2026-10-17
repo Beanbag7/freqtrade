@@ -13,6 +13,8 @@ import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/lib/auth";
+import { refreshOnce } from "@/lib/api/client";
+import { useUiSettings } from "@/lib/settings";
 import { formatPct, formatPrice } from "@/lib/utils";
 
 const BASE = "/api/v1";
@@ -36,18 +38,18 @@ const SUBSCRIPTIONS = [
   "liquidation_warning",
 ];
 
-/** queryKey prefixes invalidated per broadcast message type. */
+/** queryKey prefixes invalidated per broadcast message type。 */
 const INVALIDATE_MAP: Record<string, string[]> = {
   entry: ["status", "trades", "count", "balance", "profit", "performance", "entries", "stats"],
   entry_fill: ["status", "trades", "count", "balance", "profit", "performance", "entries", "stats"],
   entry_cancel: ["status", "count"],
-  exit: ["status", "trades", "count", "balance", "profit", "profit_all", "performance", "exits", "stats", "locks"],
-  exit_fill: ["status", "trades", "count", "balance", "profit", "profit_all", "performance", "exits", "stats", "locks"],
+  exit: ["status", "trades", "count", "balance", "profit", "performance", "exits", "stats", "locks"],
+  exit_fill: ["status", "trades", "count", "balance", "profit", "performance", "exits", "stats", "locks"],
   exit_cancel: ["status", "count"],
   protection_trigger: ["locks", "show_config", "status"],
   protection_trigger_global: ["locks", "show_config", "status"],
   whitelist: ["whitelist"],
-  new_candle: ["pair_candles"],
+  // new_candle 不在这张表里:走 onmessage 里的设置门控(尊重 K 线页「自动刷新」开关)
 };
 
 interface WsMessage {
@@ -84,6 +86,14 @@ function toastTradeEvent(msg: WsMessage) {
         description: [rate !== null && `成交价 ${formatPrice(rate)}`, profit && `收益 ${profit}`]
           .filter(Boolean)
           .join(" · "),
+      });
+      break;
+    }
+    case "liquidation_warning": {
+      // 强平预警:安全信号,必须可见(freqUI parity;此前订阅了但没有消费)
+      const liq = typeof d.liquidation_price === "number" ? formatPrice(d.liquidation_price) : null;
+      toast.warning(`强平预警 ${pair}`, {
+        description: liq ? `强平价 ${liq}` : undefined,
       });
       break;
     }
@@ -154,9 +164,16 @@ class LiveSocket {
       if (!msg.type) return;
       this.messageCount += 1;
       this.publishDebug();
-      const keys = INVALIDATE_MAP[msg.type];
-      if (keys && this.qc) {
-        for (const key of keys) this.qc.invalidateQueries({ queryKey: [key] });
+      // new_candle 走设置门控:K 线页「自动刷新」关闭时,WS 也不得绕过触发 refetch
+      if (msg.type === "new_candle") {
+        if (useUiSettings.getState().chartAutoRefresh) {
+          this.qc?.invalidateQueries({ queryKey: ["pair_candles"] });
+        }
+      } else {
+        const keys = INVALIDATE_MAP[msg.type];
+        if (keys && this.qc) {
+          for (const key of keys) this.qc.invalidateQueries({ queryKey: [key] });
+        }
       }
       toastTradeEvent(msg);
     };
@@ -165,33 +182,14 @@ class LiveSocket {
       this.ws = null;
       this.publishDebug();
       if (this.stopped) return;
-      // 1008 = policy violation → token rejected; refresh it before retrying.
-      if (event.code === 1008) void this.refreshToken();
+      // 1008 = policy violation → token rejected;与 REST 401 共用单飞刷新锁
+      if (event.code === 1008) void refreshOnce();
       this.scheduleReconnect();
     };
 
     ws.onerror = () => {
       // onclose follows and handles the reconnect.
     };
-  }
-
-  private async refreshToken() {
-    const { refreshToken, setAccessToken, logout } = useAuthStore.getState();
-    if (!refreshToken) return;
-    try {
-      const res = await fetch(`${BASE}/token/refresh`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${refreshToken}` },
-      });
-      if (!res.ok) {
-        logout();
-        return;
-      }
-      const data = (await res.json()) as { access_token: string };
-      setAccessToken(data.access_token);
-    } catch {
-      /* next reconnect attempt retries */
-    }
   }
 
   private scheduleReconnect() {

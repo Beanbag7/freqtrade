@@ -184,7 +184,9 @@ export function ForceEnterCard() {
     ? [
         `交易对:${confirmPayload.pair}`,
         `方向:${confirmPayload.side === "long" ? "多" : "空"}`,
-        `投入金额:${confirmPayload.stakeamount ?? config.stake_amount}(未填则按默认投入)`,
+        confirmPayload.stakeamount !== undefined && confirmPayload.stakeamount !== null
+          ? `投入金额:${confirmPayload.stakeamount}`
+          : `投入金额:${config.stake_amount}(未填,按默认投入)`,
         `订单类型:${confirmPayload.ordertype === "limit" ? "限价" : "市价"}`,
       ].join("\n")
     : "";

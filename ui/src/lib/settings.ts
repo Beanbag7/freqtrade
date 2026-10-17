@@ -9,14 +9,19 @@ import { persist } from "zustand/middleware";
 interface UiSettingsState {
   /** 显示时区:"local" 跟随浏览器,否则为 IANA 名称(如 "UTC"、"Asia/Shanghai")。 */
   timezone: string;
+  /** K 线页自动刷新:同时门控轮询 interval 与 WS new_candle 失效(两者不得互相绕过)。 */
+  chartAutoRefresh: boolean;
   setTimezone: (tz: string) => void;
+  setChartAutoRefresh: (v: boolean) => void;
 }
 
 export const useUiSettings = create<UiSettingsState>()(
   persist(
     (set) => ({
       timezone: "local",
+      chartAutoRefresh: true,
       setTimezone: (timezone) => set({ timezone }),
+      setChartAutoRefresh: (chartAutoRefresh) => set({ chartAutoRefresh }),
     }),
     { name: "freqtrade-ui-settings" },
   ),

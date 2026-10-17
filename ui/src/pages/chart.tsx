@@ -33,6 +33,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn, formatPct, formatPrice } from "@/lib/utils";
+import { useUiSettings } from "@/lib/settings";
 import {
   useOpenTrades,
   usePairCandles,
@@ -41,7 +42,6 @@ import {
   useTrades,
   useWhitelist,
 } from "@/lib/api/hooks";
-import type { PairHistory } from "@/lib/api/types";
 import {
   CandleChart,
   type ChartMarker,
@@ -117,7 +117,9 @@ export default function ChartPage() {
   const [pair, setPair] = useState("");
   const [timeframe, setTimeframe] = useState("");
   const [pairOpen, setPairOpen] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  // 自动刷新入全局设置:ws.ts 的 new_candle 失效也要尊重这个开关
+  const autoRefresh = useUiSettings((s) => s.chartAutoRefresh);
+  const setAutoRefresh = useUiSettings((s) => s.setChartAutoRefresh);
   const [showStrategyPlot, setShowStrategyPlot] = useState(true);
   // PlotConfigurator(freqUI parity):自定义绘图——把策略 dataframe 任意列指派到主图/副图
   const [plotMode, setPlotMode] = useState<"strategy" | "custom">("strategy");

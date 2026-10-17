@@ -4,7 +4,6 @@ import { persist } from "zustand/middleware";
 interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
-  /** Remembered API base origin when the UI is served separately from the bot. */
   setTokens: (access: string, refresh: string) => void;
   setAccessToken: (access: string) => void;
   logout: () => void;

@@ -3,10 +3,6 @@
  * Keep in sync with API_VERSION 2.50.
  */
 
-export interface Ping {
-  status: string;
-}
-
 export interface Version {
   version: string;
 }
@@ -17,15 +13,6 @@ export interface StatusMsg {
 
 export interface ResultMsg {
   result: string;
-}
-
-export interface AccessAndRefreshToken {
-  access_token: string;
-  refresh_token: string;
-}
-
-export interface AccessToken {
-  access_token: string;
 }
 
 export interface Balance {
@@ -79,10 +66,6 @@ export interface Entry extends BaseStats {
 
 export interface Exit extends BaseStats {
   exit_reason: string;
-}
-
-export interface MixTag extends BaseStats {
-  mix_tag: string;
 }
 
 export interface PerformanceEntry extends BaseStats {
@@ -145,12 +128,6 @@ export interface Profit {
   trading_volume?: number;
   bot_start_timestamp: number;
   bot_start_date: string;
-}
-
-export interface ProfitAll {
-  all: Profit;
-  long?: Profit;
-  short?: Profit;
 }
 
 export interface SellReason {
@@ -392,13 +369,6 @@ export interface ShowConfig {
   max_entry_position_adjustment: number;
 }
 
-export interface DeleteTrade {
-  cancel_order_count: number;
-  result: string;
-  result_msg: string;
-  trade_id: number;
-}
-
 export interface PairHistory {
   strategy: string;
   pair: string;
@@ -423,8 +393,6 @@ export interface PairHistory {
   data_stop: string;
   data_stop_ts: number;
 }
-
-export type PlotConfig = Record<string, unknown>;
 
 export interface StrategyParameter {
   param_type: "IntParameter" | "RealParameter" | "DecimalParameter" | "BooleanParameter" | "CategoricalParameter";
@@ -471,12 +439,6 @@ export interface BacktestResponse {
   trade_count?: number;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   backtest_result?: Record<string, any> | null;
-}
-
-export interface BacktestMarketChange {
-  columns: string[];
-  length: number;
-  data: unknown[][];
 }
 
 export interface BackgroundTaskStatus {

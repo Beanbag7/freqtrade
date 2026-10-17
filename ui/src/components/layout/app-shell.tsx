@@ -53,6 +53,10 @@ const NAV_ITEMS = [
 ] as const;
 
 function StateBadge({ state, runmode }: { state?: string; runmode?: string }) {
+  // config 尚未加载时(state/runmode 均为 undefined)不渲染,避免闪现误标
+  if (state === undefined && runmode === undefined) {
+    return null;
+  }
   if (state === "running") {
     return (
       <Badge variant="outline" className="gap-1.5 border-success/40 bg-success/10 text-success">

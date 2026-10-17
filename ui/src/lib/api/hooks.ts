@@ -22,20 +22,16 @@ import type {
   ForceExitPayload,
   Health,
   ListCustomData,
-  LockModel,
   Locks,
   LocksPayload,
   Logs,
   LookaheadAnalysisResponse,
   MarketResponse,
-  MixTag,
   OpenTrade,
   PairHistory,
   PairListsResponse,
   PerformanceEntry,
-  Ping,
   Profit,
-  ProfitAll,
   RecursiveAnalysisResponse,
   ResultMsg,
   ShowConfig,
@@ -50,8 +46,6 @@ import type {
   WhitelistResponse,
 } from "@/lib/api/types";
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 const POLL_FAST = 5_000; // live trading state
 const POLL_MED = 15_000; // config / health
 const POLL_SLOW = 60_000; // stats / history
@@ -59,9 +53,6 @@ const POLL_SLOW = 60_000; // stats / history
 type Opts<T> = Omit<UseQueryOptions<T, Error>, "queryKey" | "queryFn">;
 
 /* ------------------------------ Info ------------------------------ */
-
-export const usePing = (opts?: Opts<Ping>) =>
-  useQuery({ queryKey: ["ping"], queryFn: () => api<Ping>("/ping", { public: true }), retry: 1, ...opts });
 
 export const useVersion = (opts?: Opts<Version>) =>
   useQuery({ queryKey: ["version"], queryFn: () => api<Version>("/version"), staleTime: Infinity, ...opts });
@@ -124,14 +115,6 @@ export const useProfit = (opts?: Opts<Profit>) =>
     ...opts,
   });
 
-export const useProfitAll = (opts?: Opts<ProfitAll>) =>
-  useQuery({
-    queryKey: ["profit_all"],
-    queryFn: () => api<ProfitAll>("/profit_all"),
-    refetchInterval: POLL_MED,
-    ...opts,
-  });
-
 export const useStats = (opts?: Opts<Stats>) =>
   useQuery({ queryKey: ["stats"], queryFn: () => api<Stats>("/stats"), refetchInterval: POLL_SLOW, ...opts });
 
@@ -155,14 +138,6 @@ export const useExits = (pair?: string, opts?: Opts<Exit[]>) =>
   useQuery({
     queryKey: ["exits", pair ?? ""],
     queryFn: () => api<Exit[]>("/exits", { query: { pair } }),
-    refetchInterval: POLL_SLOW,
-    ...opts,
-  });
-
-export const useMixTags = (pair?: string, opts?: Opts<MixTag[]>) =>
-  useQuery({
-    queryKey: ["mix_tags", pair ?? ""],
-    queryFn: () => api<MixTag[]>("/mix_tags", { query: { pair } }),
     refetchInterval: POLL_SLOW,
     ...opts,
   });
@@ -262,9 +237,11 @@ export const usePairCandles = (
     ...opts,
   });
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- plot_config 结构随策略自由定义
 export const usePlotConfig = (opts?: Opts<Record<string, any>>) =>
   useQuery({
     queryKey: ["plot_config"],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     queryFn: () => api<Record<string, any>>("/plot_config"),
     staleTime: POLL_SLOW,
     ...opts,
@@ -352,15 +329,6 @@ export const useBacktestResultFile = (
         query: { filename: file, strategy },
       }),
     enabled: Boolean(file && strategy),
-    retry: 1,
-    ...opts,
-  });
-
-export const useBacktestMarketChange = (file: string | undefined, opts?: Opts<any>) =>
-  useQuery({
-    queryKey: ["backtest-market-change", file ?? ""],
-    queryFn: () => api<any>(`/backtest/history/${encodeURIComponent(file!)}/market_change`),
-    enabled: Boolean(file),
     retry: 1,
     ...opts,
   });
@@ -510,15 +478,16 @@ export const useReloadConfig = () => {
 };
 
 export const useForceEnter = () => {
-  const invalidate = useInvalidate("status", "count", "balance");
+  // WS entry_fill 失效兜底之外,纯轮询环境也要尽快刷新这些面
+  const invalidate = useInvalidate("status", "count", "balance", "trades", "profit", "stats");
   return useMutation({
-    mutationFn: (payload: ForceEnterPayload) => api<any>("/forceenter", { method: "POST", body: payload }),
+    mutationFn: (payload: ForceEnterPayload) => api<unknown>("/forceenter", { method: "POST", body: payload }),
     onSuccess: invalidate,
   });
 };
 
 export const useForceExit = () => {
-  const invalidate = useInvalidate("status", "count", "balance", "trades");
+  const invalidate = useInvalidate("status", "count", "balance", "trades", "profit", "stats");
   return useMutation({
     mutationFn: (payload: ForceExitPayload) => api<ResultMsg>("/forceexit", { method: "POST", body: payload }),
     onSuccess: invalidate,
@@ -528,7 +497,7 @@ export const useForceExit = () => {
 export const useDeleteTrade = () => {
   const invalidate = useInvalidate("trades", "status", "count", "profit");
   return useMutation({
-    mutationFn: (tradeId: number) => api<any>(`/trades/${tradeId}`, { method: "DELETE" }),
+    mutationFn: (tradeId: number) => api<unknown>(`/trades/${tradeId}`, { method: "DELETE" }),
     onSuccess: invalidate,
   });
 };
@@ -592,6 +561,7 @@ export const useDeleteLock = () => {
 export const useStartBacktest = () => {
   const invalidate = useInvalidate("backtest-status", "backtest-history");
   return useMutation({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 回测载荷字段随 schema 演进,运行时由后端校验
     mutationFn: (payload: Record<string, any>) => api<BacktestResponse>("/backtest", { method: "POST", body: payload }),
     onSuccess: invalidate,
   });
@@ -635,5 +605,3 @@ export const useUpdateBacktestNotes = () => {
     onSuccess: invalidate,
   });
 };
-
-export type { LockModel };

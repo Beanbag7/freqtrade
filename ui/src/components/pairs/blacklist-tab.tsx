@@ -76,6 +76,7 @@ export function BlacklistTab() {
           <Input
             className="min-w-0 flex-1"
             placeholder="输入交易对,可用空格或逗号分隔,如 BTC/USDT ETH/USDT"
+            aria-label="黑名单交易对"
             value={input}
             onChange={(e) => setInput(e.target.value)}
           />

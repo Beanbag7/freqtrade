@@ -65,15 +65,22 @@ function UptimePanel() {
       <div className="space-y-0.5">
         <dt className="text-xs text-muted-foreground">启动时间</dt>
         <dd className="tnum text-sm leading-6">
-          {formatTimestamp(data.bot_start_ts)}
-          <span className="text-xs text-muted-foreground"> · {timeAgo(data.bot_start_ts)}</span>
+          {/* /health 的时间戳是秒(rpc.py int(ts.timestamp())),与其他毫秒字段不同源 */}
+          {formatTimestamp(data.bot_start_ts ? data.bot_start_ts * 1000 : null)}
+          <span className="text-xs text-muted-foreground">
+            {" "}
+            · {timeAgo(data.bot_start_ts ? data.bot_start_ts * 1000 : null)}
+          </span>
         </dd>
       </div>
       <div className="space-y-0.5">
         <dt className="text-xs text-muted-foreground">最近心跳</dt>
         <dd className="tnum text-sm leading-6">
-          {formatTimestamp(data.last_process_ts)}
-          <span className="text-xs text-muted-foreground"> · {timeAgo(data.last_process_ts)}</span>
+          {formatTimestamp(data.last_process_ts ? data.last_process_ts * 1000 : null)}
+          <span className="text-xs text-muted-foreground">
+            {" "}
+            · {timeAgo(data.last_process_ts ? data.last_process_ts * 1000 : null)}
+          </span>
         </dd>
       </div>
     </dl>

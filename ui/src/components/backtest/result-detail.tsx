@@ -309,8 +309,21 @@ function ResultBody({ backtestResult, file }: { backtestResult: LooseRecord; fil
     }))
     .sort((a, b) => Math.abs(b.profitAbs ?? 0) - Math.abs(a.profitAbs ?? 0));
 
-  const startTs = looseNum(backtestResult, "backtest_start_ts");
-  const endTs = looseNum(backtestResult, "backtest_end_ts");
+  // 回测时段:顶层没有这两个字段;正确来源是 metadata[strategy](秒级 epoch,与
+  // result-chart.tsx 的 fmtDay 同源;strategy[strategy] 里的同名字段是毫秒,别混)。
+  const meta = (() => {
+    const md = backtestResult.metadata;
+    if (md && typeof md === "object") {
+      const keys = Object.keys(md as LooseRecord);
+      const first = keys.length > 0 ? (md as LooseRecord)[keys[0]] : null;
+      if (first && typeof first === "object") return first as LooseRecord;
+    }
+    return null;
+  })();
+  const startTsSec = meta ? looseNum(meta, "backtest_start_ts") : null;
+  const endTsSec = meta ? looseNum(meta, "backtest_end_ts") : null;
+  const startTs = startTsSec !== null ? startTsSec * 1000 : null;
+  const endTs = endTsSec !== null ? endTsSec * 1000 : null;
 
   return (
     <div className="space-y-4">
