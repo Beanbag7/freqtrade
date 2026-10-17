@@ -70,3 +70,41 @@
 存档：2026-10-16 早先 G3_LITE_STAGE2_REQUEST 版申请（端口阻塞期）要点——幂等缺陷七情形对照、端口 `0.0.0.0` 暴露证据、四裁决请求；已被本节替代，原文见 git 外历史或 `lm_migration/G3-lite-stage2-gate-report.md`。
 
 
+
+---
+
+## 恢复运行预检与 Owner Gate 申请（2026-10-16 晚）
+
+**背景**：G5 阶段一 NO-GO 的两大缺口之一＝自然观察真量不增长（signals.jsonl 24 条停更，mtime=当日 07:31 UTC）。任务书工作包 B 要求静态安全预检＋一次性运行 Gate。
+
+**静态安全预检（八项，全部 PASS）**：
+1. 零订单列：`lm_migration/g3_lite/strategy.py:112-118` enter/exit 全 0（测试 `test_g3_lite.py:90/:708` 断言）；
+2. 仅观察 BUY/SELL/HOLD：Observer 只记录评估，不设任何交易列；
+3. 无真实/模拟开仓：源级「never calls create_order」（strategy.py:14-20 docstring 合同）＋`can_short=False`（:50）＋dry_run=true；44/44 含零订单用例；
+4. DemoAPI 本地只读：GET-only 客户端（127.0.0.1:8080）；
+5. 交易所仅公共数据：config exchange key/secret 为空（config_lm_observer.json:27-28），OKX 公共行情；
+6. 无真实凭据入进程：config 凭据全空；FT 核心不自动加载 `.env`（main.py/configuration 无 dotenv 引用，grep 实证）；运行仅需 `DEMOAPI_API_KEY` 环境变量（自 Owner 已批的 `.env` 副本中 `BACKEND_API_KEY` 提取，仅作 x-api-key header）；
+7. 不覆盖现有制品：独立 `observer.sqlite`（:21）与 `g3_lite/user_data/signals.jsonl`（:3，追加写保留全部历史）；与 G4 的 dryrun.sqlite/user_data 完全分离；
+8. 端口/进程隔离：api_server **enabled=false**（:63，8080 仅声明不监听）、telegram 关、bot_name 独立。
+
+**申请：`APPROVE_G3_ZERO_ORDER_OBSERVATION_RUN`**——批准后执行受控启动验证（短窗口约 20 分钟）：
+启动：`DEMOAPI_API_KEY=$(提取自 .env) LM_DEMOAPI_BASE_URL=http://127.0.0.1:8080 .venv/bin/freqtrade trade --config lm_migration/g3_lite/config_lm_observer.json`（后台，日志 `g3_lite/user_data/g3-observe-r2.log`）；
+验证项：三币持续 evaluation、READY/DEGRADED/NOT_READY 合理、signals.jsonl 新增真实时间戳、**observer.sqlite/日志中零订单**、出错安全降级不触发下单；
+停止机制：`kill -INT <pid>`（SIGINT 正常停止）；验证通过后提交「持续运行＋健康检查（每日一次只读 HTTP 轮数核查）」建议，持续运行时长由 Owner 指定。
+
+---
+
+## 恢复运行执行记录（2026-10-16 21:43–21:50，Owner 批复后执行）
+
+受控启动验证（pid 60355，SIGINT 优雅停止）：约 7 分钟窗口内——三币各 4 条新评估（计 12 条，全部 READY，action HOLD 12），signals.jsonl 24→36 条（追加保留历史）；**observer.sqlite trades=0、orders=0**，日志零下单痕迹；DemoAPI 本地只读读取正常，出错路径未触发。八项预检假设全部经实跑确认。停止机制（SIGINT）实测有效（二次 INT 后 ~10s 内优雅退出）。
+
+**持续运行建议（待 Owner 批准）**：同一命令以 nohup 常驻，日志 `g3-observe-r2.log` 续写；健康检查＝每日一次只读核查（signals.jsonl 行数增长＋DemoAPI timeline 轮数增长＋零订单断言）；停止＝`kill -INT <pid>`。批准口径建议：「批准 G3 持续观察」＋可选指定运行时长/截止条件（如「积累至 2026-10-23」）。
+
+---
+
+## 持续观察执行记录（Owner「批准 G3 持续观察」，2026-10-16 21:53 启动）
+
+- 进程：pid 65984（nohup 常驻，日志续写 `g3-observe-r2.log`），启动即 3 币 3 评估，signals.jsonl 36→42 条。
+- 积累边界：**2026-10-23**（申请建议值随批复生效，Owner 可随时调整；到期由健康检查以 SIGINT 优雅停止并汇总）。
+- 每日健康检查：已建自动化 `automation-152c77c7`（每日 09:00：进程存活〔死则按固定授权命令重启并记录〕/信号行数增长/observer.sqlite 零订单断言/DemoAPI 去重轮数增长/日志异常）。
+- readiness §D 四项处置（生产部署/Funding-OI 来源/杠杆权重口径/两项定义差异）**维持待 Owner 逐项裁决**——含远程部署等非本 Agent 权限动作，不因笼统批复视作已决。

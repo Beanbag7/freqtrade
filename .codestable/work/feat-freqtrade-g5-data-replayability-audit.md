@@ -1,7 +1,8 @@
 # feat: G5 历史数据可回放性审计（LM→Freqtrade 迁移）
 
 > 类型：audit（只读调查；全部产出在 freqtrade 仓 `lm_migration/`；DemoAPI 仓库/数据库不在默认授权内）
-> 状态：**PHASE 1 IN PROGRESS — BLOCKED_ON_DEMOAPI_KEY**（Owner 已批 `G5: APPROVE_READONLY_PHASE_1_AFTER_SCOPE_CHECK`，SCOPE: HISTORICAL_COVERAGE_AND_COMPLETE_ROUND_AUDIT_ONLY；范围核验＋本地可做项已完成，HTTP 历史抽样待 Owner 注入 `DEMOAPI_API_KEY`，见 `lm_migration/G5-phase1-coverage-report.md` §3）
+> 状态：**PHASE 3 READINESS PREPARED — AWAITING OWNER §D×4＋PHASE3_GATE**（统计统一 as-of 14:07 UTC：245 唯一轮/20.21h/81 槽（§10 统一口径＋Phase 2 三层边界声明已入覆盖率报告）；Phase 3 准入决策包 `lm_migration/G5-phase3-admission-decision-pack.md`（§D 四项独立推荐＋七步最小验证设计＋有限施工申请）；G3 持续观察健康（63 评估、零订单）。回测实现未授权。）
+> 注意：本文件已被 Owner 于 `db18f9067` 自行纳入版本管理（`docs(codestable)` 提交）——后续更新将表现为 stable 分支上的 tracked 修改。
 > 授权链：任务书 `lm_migration/G5-data-replayability-audit-request.md`（2026-10-16 Owner 批）← 基线 `lm_migration/G5-demoapi-historical-replay-readiness.md`（2026-10-15 源码审计，DemoAPI@2c05ed0：架构可行/覆盖不足/生产未部署＋四项 Owner 待处置）
 > 硬边界：G5_IMPLEMENTATION 与 BACKTEST 未授权；不调参不 Hyperopt；LIVE_TRADING FORBIDDEN；不读不输出密钥。
 
@@ -24,3 +25,7 @@
 ## 记录
 
 - 2026-10-16：任务书获批并执行阶段一至密钥阻塞点；部分报告 `G5-phase1-coverage-report.md`（BLOCKED_ON_KEY）。
+
+## 2026-10-16 晚执行记录（Owner「批准」三项并行申请）
+
+①Git 纳管执行完成：commit `900a27745`（详见纳管方案 §10）。②G3 观察恢复：受控验证 7 分钟（12 条新评估全 READY、零订单、SIGINT 停止），持续运行已另提申请。③Phase 2 最小 R1-R7 **七项全 PASS**（短窗口未见未来泄漏；详见覆盖率报告 §9）；同时诚实更正轮数计数伪影（450→241 唯一轮，§8）。**下一步待 Owner：G3 持续观察批准（＋时长）／readiness §D 四项处置／数据跨度积累**；Phase 3 与回测实现未启动。
